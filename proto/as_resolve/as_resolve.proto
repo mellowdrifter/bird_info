@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package as_resolve;
+
+service asresolver {
+    rpc get_as_name(as_request) returns (as_response);
+}
+
+message as_request {
+    uint32 as_number = 1;
+}
+
+message as_response {
+    string as_name = 1;
+}
