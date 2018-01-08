@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	query := []byte("configure check\n")
+	query := []byte("configure\n")
 	conn, err := net.Dial("unix", "/var/run/bird/bird6.ctl")
 	if err != nil {
 		log.Fatal("Connection error:", err)
