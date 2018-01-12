@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package birdComm;
+
+service bird_comm {
+    rpc check_config(family) returns (conf_reply);
+    rpc reload_config(family) returns (conf_reply);
+}
+
+message family {
+    uint32 af = 1;
+}
+
+message conf_reply {
+    string reply = 1;
+    bool success = 2;
+}

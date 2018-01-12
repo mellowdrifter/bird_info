@@ -5,34 +5,28 @@ import (
 	"log"
 	"net"
 	"strings"
+
+	pb "github.com/mellowdrifter/bird_info/proto/birdComm"
+	context "golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
-type confReply struct {
-	reply   string
-	success bool
-}
+type server struct{}
 
 func main() {
-
-	goCheck := checkConfig()
-	if goCheck.success == true {
-		fmt.Println("Config check was a success!")
-		fmt.Printf("The line we were looking for was %v\n", goCheck.reply)
-	} else {
-		fmt.Println("Config check was not a success")
+	log.Println("Listening on port 1179")
+	lis, err := net.Listen("tcp", ":1179")
+	if err != nil {
+		log.Fatalf("Failed to bind: %v,", err)
 	}
 
-	goReload := reloadConfig()
-	if goReload.success == true {
-		fmt.Println("Config check was a success!")
-		fmt.Printf("The line we were looking for was %v\n", goReload.reply)
-	} else {
-		fmt.Println("Config reload was not a success")
-	}
+	grpcServer := grpc.NewServer()
+	pb.RegisterBirdCommServer(grpcServer, &server{})
 
+	grpcServer.Serve(lis)
 }
 
-func connectBird(af int, command []byte) ([]string, error) {
+func connectBird(af uint32, command []byte) ([]string, error) {
 
 	var bird string
 	switch af {
@@ -41,11 +35,11 @@ func connectBird(af int, command []byte) ([]string, error) {
 	case 6:
 		bird = "/var/run/bird/bird6.ctl"
 	default:
-		return []string{}, fmt.Errorf("Need to pass an address family")
+		return []string{}, fmt.Errorf("Need to pass a supported address family")
 	}
 	conn, err := net.Dial("unix", bird)
 	if err != nil {
-		log.Fatal("Connection error:", err)
+		return []string{}, err
 	}
 	defer conn.Close()
 
@@ -53,19 +47,19 @@ func connectBird(af int, command []byte) ([]string, error) {
 	buf := make([]byte, 4096)
 	n, err := conn.Read(buf[:])
 	if err != nil {
-		return []string{}, fmt.Errorf("Error on reading")
+		return []string{}, err
 	}
 
 	// send request
 	_, err = conn.Write(command)
 	if err != nil {
-		return []string{}, fmt.Errorf("Unable to send query")
+		return []string{}, err
 	}
 
 	// read response
 	n, err = conn.Read(buf[:])
 	if err != nil {
-		return []string{}, fmt.Errorf("Error on reading")
+		return []string{}, err
 	}
 
 	output := string(buf[:n])
@@ -73,44 +67,44 @@ func connectBird(af int, command []byte) ([]string, error) {
 
 }
 
-func reloadConfig() confReply {
+func (s *server) ReloadConfig(ctx context.Context, f *pb.Family) (*pb.ConfReply, error) {
+	log.Printf("Received request to ReloadConfig with argument %v", f.GetAf())
 	query := []byte("configure\n")
 
-	reply, err := connectBird(4, query)
+	reply, err := connectBird(f.GetAf(), query)
 	if err != nil {
-		log.Fatalf("received error: %v", err)
-		return confReply{}
+		return &pb.ConfReply{}, err
 	}
 
 	for _, line := range reply {
 		if strings.Contains(line, "Reconfigured") {
-			return confReply{
-				reply:   line,
-				success: true,
-			}
+			return &pb.ConfReply{
+				Reply:   line,
+				Success: true,
+			}, nil
 		}
 	}
 	// Return empty string and false if config check not ok
-	return confReply{}
+	return &pb.ConfReply{}, fmt.Errorf("Error on reloading")
 }
 
-func checkConfig() confReply {
+func (s *server) CheckConfig(ctx context.Context, f *pb.Family) (*pb.ConfReply, error) {
+	log.Printf("Received request to CheckConfig with argument %v", f.GetAf())
 	query := []byte("configure check\n")
 
-	reply, err := connectBird(4, query)
+	reply, err := connectBird(f.GetAf(), query)
 	if err != nil {
-		log.Fatalf("received error: %v", err)
-		return confReply{}
+		return &pb.ConfReply{}, err
 	}
 
 	for _, line := range reply {
 		if strings.Contains(line, "Configuration OK") {
-			return confReply{
-				reply:   line,
-				success: true,
-			}
+			return &pb.ConfReply{
+				Reply:   line,
+				Success: true,
+			}, nil
 		}
 	}
 	// Return empty string and false if config check not ok
-	return confReply{}
+	return &pb.ConfReply{}, fmt.Errorf("Error with checking config")
 }
