@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -17,35 +19,34 @@ import (
 type server struct{}
 
 type neighbour struct {
-	Routerid string
-	Name     string
-	LocalAS  uint32
-	Address  string
-	AS       uint32
-	Password string
+	Name        string
+	Group       string
+	Description string
+	Address     string
+	AS          uint32
 }
 
 func main() {
+	storeConfig()
 	type peers []neighbour
 	var myPeers = peers{
 		{
-			Routerid: "192.168.1.1",
-			Name:     "peer1",
-			LocalAS:  12345,
-			Address:  "100.100.100.100",
-			AS:       100,
+			Name:        "peer1",
+			Group:       "peers",
+			Description: "Company 1",
+			Address:     "100.100.100.100",
+			AS:          100,
 		},
 		{
-			Routerid: "192.168.1.1",
-			Name:     "peer2",
-			LocalAS:  12345,
-			Address:  "200.200.200.200",
-			AS:       200,
-			Password: "password123",
+			Name:        "peer2",
+			Group:       "peers",
+			Description: "Company 2",
+			Address:     "200.200.200.200",
+			AS:          200,
 		},
 	}
 
-	t := template.Must(template.New("config").Parse(config))
+	t := template.Must(template.New("bgp").Parse(bgp))
 
 	t.Execute(os.Stdout, myPeers)
 
@@ -156,4 +157,30 @@ func readConfig() error {
 	}
 	fmt.Println(string(existing))
 	return nil
+}
+
+func storeConfig() {
+	// This function is DISGUSTING!!!
+	// but it works...
+	file, err := os.Open("/etc/bird/bird6_bgp.conf")
+	if err != nil {
+		fmt.Printf("Error opening file: %v", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+
+	for scanner.Scan() {
+		if strings.HasPrefix(scanner.Text(), "protocol bgp ") {
+			re := regexp.MustCompile(`(bgp )(.*)( from )`)
+			name := re.FindString(scanner.Text())
+			fmt.Printf("Name is %v\n", name)
+		}
+		if strings.HasPrefix(scanner.Text(), "  description ") {
+			re := regexp.MustCompile(`(description ")(.*)(";)`)
+			description := re.FindString(scanner.Text())
+			fmt.Printf("Name is %v\n", description)
+		}
+	}
 }
