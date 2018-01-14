@@ -15,3 +15,15 @@ message conf_reply {
     string reply = 1;
     bool success = 2;
 }
+
+message peer {
+    string name = 1;
+    string description = 2;
+    string address = 3;
+    uint32 as = 4;
+    string password = 5;
+}
+
+message peer_group {
+    repeated peer group = 1;
+}

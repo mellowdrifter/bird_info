@@ -1,16 +1,15 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
-	"regexp"
 	"strings"
 	"text/template"
 
+	"github.com/golang/protobuf/proto"
 	pb "github.com/mellowdrifter/bird_info/proto/birdComm"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -18,39 +17,12 @@ import (
 
 type server struct{}
 
-type neighbour struct {
-	Name        string
-	Group       string
-	Description string
-	Address     string
-	AS          uint32
-}
-
 func main() {
-	storeConfig()
-	type peers []neighbour
-	var myPeers = peers{
-		{
-			Name:        "peer1",
-			Group:       "peers",
-			Description: "Company 1",
-			Address:     "100.100.100.100",
-			AS:          100,
-		},
-		{
-			Name:        "peer2",
-			Group:       "peers",
-			Description: "Company 2",
-			Address:     "200.200.200.200",
-			AS:          200,
-		},
-	}
-
+	// Get existing peers locally
+	peers := loadExisting()
 	t := template.Must(template.New("bgp").Parse(bgp))
+	t.Execute(os.Stdout, peers.GetGroup())
 
-	t.Execute(os.Stdout, myPeers)
-
-	//err := readConfig()
 	log.Println("Listening on port 1179")
 	lis, err := net.Listen("tcp", ":1179")
 	if err != nil {
@@ -159,28 +131,16 @@ func readConfig() error {
 	return nil
 }
 
-func storeConfig() {
-	// This function is DISGUSTING!!!
-	// but it works...
-	file, err := os.Open("/etc/bird/bird6_bgp.conf")
+func loadExisting() *pb.PeerGroup {
+	in, err := ioutil.ReadFile("neighbours.pb.txt")
 	if err != nil {
-		fmt.Printf("Error opening file: %v", err)
+		log.Fatalf("error: %v", err)
 	}
-	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanLines)
-
-	for scanner.Scan() {
-		if strings.HasPrefix(scanner.Text(), "protocol bgp ") {
-			re := regexp.MustCompile(`(bgp )(.*)( from )`)
-			name := re.FindString(scanner.Text())
-			fmt.Printf("Name is %v\n", name)
-		}
-		if strings.HasPrefix(scanner.Text(), "  description ") {
-			re := regexp.MustCompile(`(description ")(.*)(";)`)
-			description := re.FindString(scanner.Text())
-			fmt.Printf("Name is %v\n", description)
-		}
+	peers := &pb.PeerGroup{}
+	err = proto.UnmarshalText(string(in), peers)
+	if err != nil {
+		log.Fatalf("error: %v", err)
 	}
+	return peers
 }

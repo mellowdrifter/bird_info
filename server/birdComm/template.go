@@ -1,9 +1,9 @@
 package main
 
 const bgp = `{{range .}}
-protocol bgp {{.Name}} from {{.Group}} {
+protocol bgp {{.Name}} from peers {
   description "{{.Description}}";
-  neighbor {{.Address}} as {{.AS}};
+  neighbor {{.Address}} as {{.As}};
 }
 
 {{end}}
