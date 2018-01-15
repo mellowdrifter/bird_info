@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"strings"
-	"text/template"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/mellowdrifter/bird_info/proto/birdComm"
@@ -18,10 +18,6 @@ import (
 type server struct{}
 
 func main() {
-	// Get existing peers locally
-	peers := loadExisting()
-	t := template.Must(template.New("bgp").Parse(bgp))
-	t.Execute(os.Stdout, peers.GetGroup())
 
 	log.Println("Listening on port 1179")
 	lis, err := net.Listen("tcp", ":1179")
@@ -76,8 +72,40 @@ func connectBird(af uint32, command []byte) ([]string, error) {
 
 }
 
-func (s *server) ReloadConfig(ctx context.Context, f *pb.Family) (*pb.ConfReply, error) {
-	log.Printf("Received request to ReloadConfig with argument %v", f.GetAf())
+func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
+	// Get existing peers locally
+	peers, err := loadExisting()
+	if err != nil {
+		return nil, err
+	}
+
+	// Append new peer
+	peers.Group = append(peers.Group, p)
+
+	// Write config to temp file
+	out, err := os.Create("/tmp/test.conf")
+	if err != nil {
+		return nil, err
+	}
+	defer out.Close()
+	t := template.Must(template.New("bgp").Parse(bgp))
+	t.Execute(out, peers.GetGroup())
+
+	// Test that config will load in bird
+
+	return nil, nil
+}
+func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
+	return nil, nil
+}
+func (s *server) AddStatic(ctx context.Context, p *pb.Route) (*pb.Result, error) {
+	return nil, nil
+}
+func (s *server) DeleteStatic(ctx context.Context, p *pb.Route) (*pb.Result, error) {
+	return nil, nil
+}
+
+/*func ReloadConfig(f *pb.Family) error {
 	query := []byte("configure\n")
 
 	reply, err := connectBird(f.GetAf(), query)
@@ -95,9 +123,9 @@ func (s *server) ReloadConfig(ctx context.Context, f *pb.Family) (*pb.ConfReply,
 	}
 	// Return empty string and false if config check not ok
 	return &pb.ConfReply{}, fmt.Errorf("Error on reloading")
-}
+}*/
 
-func (s *server) CheckConfig(ctx context.Context, f *pb.Family) (*pb.ConfReply, error) {
+/*func (s *server) CheckConfig(ctx context.Context, f *pb.Family) (*pb.ConfReply, error) {
 	log.Printf("Received request to CheckConfig with argument %v", f.GetAf())
 	query := []byte("configure check\n")
 
@@ -116,31 +144,18 @@ func (s *server) CheckConfig(ctx context.Context, f *pb.Family) (*pb.ConfReply, 
 	}
 	// Return empty string and false if config check not ok
 	return &pb.ConfReply{}, fmt.Errorf("Error with checking config")
-}
+}*/
 
-func readConfig() error {
-	existing, err := ioutil.ReadFile("/etc/bird/bird6.conf")
-	if err != nil {
-		return fmt.Errorf("Error reading file")
-	}
-	err = ioutil.WriteFile("/etc/bird/bird5.conf", existing, 0600)
-	if err != nil {
-		return fmt.Errorf("Error writing file")
-	}
-	fmt.Println(string(existing))
-	return nil
-}
-
-func loadExisting() *pb.PeerGroup {
+func loadExisting() (*pb.PeerGroup, error) {
 	in, err := ioutil.ReadFile("neighbours.pb.txt")
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		return nil, err
 	}
 
 	peers := &pb.PeerGroup{}
 	err = proto.UnmarshalText(string(in), peers)
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		return nil, err
 	}
-	return peers
+	return peers, nil
 }

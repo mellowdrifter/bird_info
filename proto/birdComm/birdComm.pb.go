@@ -8,10 +8,10 @@ It is generated from these files:
 	birdComm.proto
 
 It has these top-level messages:
-	Family
-	ConfReply
+	Result
 	Peer
 	PeerGroup
+	Route
 */
 package birdComm
 
@@ -35,40 +35,45 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-type Family struct {
-	Af uint32 `protobuf:"varint,1,opt,name=af" json:"af,omitempty"`
+type Family int32
+
+const (
+	Family_ipv4 Family = 0
+	Family_ipv6 Family = 1
+)
+
+var Family_name = map[int32]string{
+	0: "ipv4",
+	1: "ipv6",
+}
+var Family_value = map[string]int32{
+	"ipv4": 0,
+	"ipv6": 1,
 }
 
-func (m *Family) Reset()                    { *m = Family{} }
-func (m *Family) String() string            { return proto.CompactTextString(m) }
-func (*Family) ProtoMessage()               {}
-func (*Family) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
-
-func (m *Family) GetAf() uint32 {
-	if m != nil {
-		return m.Af
-	}
-	return 0
+func (x Family) String() string {
+	return proto.EnumName(Family_name, int32(x))
 }
+func (Family) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-type ConfReply struct {
+type Result struct {
 	Reply   string `protobuf:"bytes,1,opt,name=reply" json:"reply,omitempty"`
 	Success bool   `protobuf:"varint,2,opt,name=success" json:"success,omitempty"`
 }
 
-func (m *ConfReply) Reset()                    { *m = ConfReply{} }
-func (m *ConfReply) String() string            { return proto.CompactTextString(m) }
-func (*ConfReply) ProtoMessage()               {}
-func (*ConfReply) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (m *Result) Reset()                    { *m = Result{} }
+func (m *Result) String() string            { return proto.CompactTextString(m) }
+func (*Result) ProtoMessage()               {}
+func (*Result) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-func (m *ConfReply) GetReply() string {
+func (m *Result) GetReply() string {
 	if m != nil {
 		return m.Reply
 	}
 	return ""
 }
 
-func (m *ConfReply) GetSuccess() bool {
+func (m *Result) GetSuccess() bool {
 	if m != nil {
 		return m.Success
 	}
@@ -81,12 +86,13 @@ type Peer struct {
 	Address     string `protobuf:"bytes,3,opt,name=address" json:"address,omitempty"`
 	As          uint32 `protobuf:"varint,4,opt,name=as" json:"as,omitempty"`
 	Password    string `protobuf:"bytes,5,opt,name=password" json:"password,omitempty"`
+	Family      Family `protobuf:"varint,6,opt,name=family,enum=birdComm.Family" json:"family,omitempty"`
 }
 
 func (m *Peer) Reset()                    { *m = Peer{} }
 func (m *Peer) String() string            { return proto.CompactTextString(m) }
 func (*Peer) ProtoMessage()               {}
-func (*Peer) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (*Peer) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 func (m *Peer) GetName() string {
 	if m != nil {
@@ -123,6 +129,13 @@ func (m *Peer) GetPassword() string {
 	return ""
 }
 
+func (m *Peer) GetFamily() Family {
+	if m != nil {
+		return m.Family
+	}
+	return Family_ipv4
+}
+
 type PeerGroup struct {
 	Group []*Peer `protobuf:"bytes,1,rep,name=group" json:"group,omitempty"`
 }
@@ -130,7 +143,7 @@ type PeerGroup struct {
 func (m *PeerGroup) Reset()                    { *m = PeerGroup{} }
 func (m *PeerGroup) String() string            { return proto.CompactTextString(m) }
 func (*PeerGroup) ProtoMessage()               {}
-func (*PeerGroup) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (*PeerGroup) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
 func (m *PeerGroup) GetGroup() []*Peer {
 	if m != nil {
@@ -139,11 +152,52 @@ func (m *PeerGroup) GetGroup() []*Peer {
 	return nil
 }
 
+type Route struct {
+	Prefix  string `protobuf:"bytes,1,opt,name=prefix" json:"prefix,omitempty"`
+	Mask    uint32 `protobuf:"varint,2,opt,name=mask" json:"mask,omitempty"`
+	Nexthop string `protobuf:"bytes,3,opt,name=nexthop" json:"nexthop,omitempty"`
+	Family  Family `protobuf:"varint,4,opt,name=family,enum=birdComm.Family" json:"family,omitempty"`
+}
+
+func (m *Route) Reset()                    { *m = Route{} }
+func (m *Route) String() string            { return proto.CompactTextString(m) }
+func (*Route) ProtoMessage()               {}
+func (*Route) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+
+func (m *Route) GetPrefix() string {
+	if m != nil {
+		return m.Prefix
+	}
+	return ""
+}
+
+func (m *Route) GetMask() uint32 {
+	if m != nil {
+		return m.Mask
+	}
+	return 0
+}
+
+func (m *Route) GetNexthop() string {
+	if m != nil {
+		return m.Nexthop
+	}
+	return ""
+}
+
+func (m *Route) GetFamily() Family {
+	if m != nil {
+		return m.Family
+	}
+	return Family_ipv4
+}
+
 func init() {
-	proto.RegisterType((*Family)(nil), "birdComm.family")
-	proto.RegisterType((*ConfReply)(nil), "birdComm.conf_reply")
+	proto.RegisterType((*Result)(nil), "birdComm.result")
 	proto.RegisterType((*Peer)(nil), "birdComm.peer")
 	proto.RegisterType((*PeerGroup)(nil), "birdComm.peer_group")
+	proto.RegisterType((*Route)(nil), "birdComm.route")
+	proto.RegisterEnum("birdComm.Family", Family_name, Family_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -157,8 +211,10 @@ const _ = grpc.SupportPackageIsVersion4
 // Client API for BirdComm service
 
 type BirdCommClient interface {
-	CheckConfig(ctx context.Context, in *Family, opts ...grpc.CallOption) (*ConfReply, error)
-	ReloadConfig(ctx context.Context, in *Family, opts ...grpc.CallOption) (*ConfReply, error)
+	AddNeighbour(ctx context.Context, in *Peer, opts ...grpc.CallOption) (*Result, error)
+	DeleteNeighbour(ctx context.Context, in *Peer, opts ...grpc.CallOption) (*Result, error)
+	AddStatic(ctx context.Context, in *Route, opts ...grpc.CallOption) (*Result, error)
+	DeleteStatic(ctx context.Context, in *Route, opts ...grpc.CallOption) (*Result, error)
 }
 
 type birdCommClient struct {
@@ -169,18 +225,36 @@ func NewBirdCommClient(cc *grpc.ClientConn) BirdCommClient {
 	return &birdCommClient{cc}
 }
 
-func (c *birdCommClient) CheckConfig(ctx context.Context, in *Family, opts ...grpc.CallOption) (*ConfReply, error) {
-	out := new(ConfReply)
-	err := grpc.Invoke(ctx, "/birdComm.bird_comm/check_config", in, out, c.cc, opts...)
+func (c *birdCommClient) AddNeighbour(ctx context.Context, in *Peer, opts ...grpc.CallOption) (*Result, error) {
+	out := new(Result)
+	err := grpc.Invoke(ctx, "/birdComm.bird_comm/add_neighbour", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *birdCommClient) ReloadConfig(ctx context.Context, in *Family, opts ...grpc.CallOption) (*ConfReply, error) {
-	out := new(ConfReply)
-	err := grpc.Invoke(ctx, "/birdComm.bird_comm/reload_config", in, out, c.cc, opts...)
+func (c *birdCommClient) DeleteNeighbour(ctx context.Context, in *Peer, opts ...grpc.CallOption) (*Result, error) {
+	out := new(Result)
+	err := grpc.Invoke(ctx, "/birdComm.bird_comm/delete_neighbour", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *birdCommClient) AddStatic(ctx context.Context, in *Route, opts ...grpc.CallOption) (*Result, error) {
+	out := new(Result)
+	err := grpc.Invoke(ctx, "/birdComm.bird_comm/add_static", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *birdCommClient) DeleteStatic(ctx context.Context, in *Route, opts ...grpc.CallOption) (*Result, error) {
+	out := new(Result)
+	err := grpc.Invoke(ctx, "/birdComm.bird_comm/delete_static", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -190,46 +264,84 @@ func (c *birdCommClient) ReloadConfig(ctx context.Context, in *Family, opts ...g
 // Server API for BirdComm service
 
 type BirdCommServer interface {
-	CheckConfig(context.Context, *Family) (*ConfReply, error)
-	ReloadConfig(context.Context, *Family) (*ConfReply, error)
+	AddNeighbour(context.Context, *Peer) (*Result, error)
+	DeleteNeighbour(context.Context, *Peer) (*Result, error)
+	AddStatic(context.Context, *Route) (*Result, error)
+	DeleteStatic(context.Context, *Route) (*Result, error)
 }
 
 func RegisterBirdCommServer(s *grpc.Server, srv BirdCommServer) {
 	s.RegisterService(&_BirdComm_serviceDesc, srv)
 }
 
-func _BirdComm_CheckConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Family)
+func _BirdComm_AddNeighbour_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Peer)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BirdCommServer).CheckConfig(ctx, in)
+		return srv.(BirdCommServer).AddNeighbour(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/birdComm.bird_comm/CheckConfig",
+		FullMethod: "/birdComm.bird_comm/AddNeighbour",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BirdCommServer).CheckConfig(ctx, req.(*Family))
+		return srv.(BirdCommServer).AddNeighbour(ctx, req.(*Peer))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BirdComm_ReloadConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Family)
+func _BirdComm_DeleteNeighbour_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Peer)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BirdCommServer).ReloadConfig(ctx, in)
+		return srv.(BirdCommServer).DeleteNeighbour(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/birdComm.bird_comm/ReloadConfig",
+		FullMethod: "/birdComm.bird_comm/DeleteNeighbour",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BirdCommServer).ReloadConfig(ctx, req.(*Family))
+		return srv.(BirdCommServer).DeleteNeighbour(ctx, req.(*Peer))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BirdComm_AddStatic_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Route)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BirdCommServer).AddStatic(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/birdComm.bird_comm/AddStatic",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BirdCommServer).AddStatic(ctx, req.(*Route))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BirdComm_DeleteStatic_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Route)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BirdCommServer).DeleteStatic(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/birdComm.bird_comm/DeleteStatic",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BirdCommServer).DeleteStatic(ctx, req.(*Route))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -239,12 +351,20 @@ var _BirdComm_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*BirdCommServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "check_config",
-			Handler:    _BirdComm_CheckConfig_Handler,
+			MethodName: "add_neighbour",
+			Handler:    _BirdComm_AddNeighbour_Handler,
 		},
 		{
-			MethodName: "reload_config",
-			Handler:    _BirdComm_ReloadConfig_Handler,
+			MethodName: "delete_neighbour",
+			Handler:    _BirdComm_DeleteNeighbour_Handler,
+		},
+		{
+			MethodName: "add_static",
+			Handler:    _BirdComm_AddStatic_Handler,
+		},
+		{
+			MethodName: "delete_static",
+			Handler:    _BirdComm_DeleteStatic_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -254,22 +374,28 @@ var _BirdComm_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("birdComm.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 269 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x51, 0xb1, 0x6e, 0xab, 0x40,
-	0x10, 0x14, 0x18, 0xfc, 0x60, 0xfd, 0x8c, 0xa2, 0x95, 0x8b, 0x93, 0x2b, 0x84, 0x52, 0x50, 0xb9,
-	0x20, 0x52, 0xd2, 0xa4, 0xcb, 0x1f, 0xf0, 0x03, 0xe8, 0x7c, 0x77, 0x38, 0x28, 0x1c, 0x77, 0xda,
-	0xb3, 0x15, 0x59, 0x4a, 0x95, 0x2f, 0x8f, 0x38, 0x4c, 0x70, 0x9b, 0x6e, 0x66, 0x76, 0x67, 0x35,
-	0x9a, 0x85, 0xec, 0xd8, 0x91, 0x7c, 0x33, 0x5a, 0x1f, 0x2c, 0x99, 0xb3, 0xc1, 0x64, 0xe6, 0x05,
-	0x83, 0x75, 0xcb, 0x75, 0xd7, 0x5f, 0x31, 0x83, 0x90, 0xb7, 0x2c, 0xc8, 0x83, 0x72, 0x5b, 0x87,
-	0xbc, 0x2d, 0x5e, 0x01, 0x84, 0x19, 0xda, 0x86, 0x94, 0xed, 0xaf, 0xb8, 0x83, 0xd8, 0x03, 0xbf,
-	0x90, 0xd6, 0x13, 0x41, 0x06, 0xff, 0xdc, 0x45, 0x08, 0xe5, 0x1c, 0x0b, 0xf3, 0xa0, 0x4c, 0xea,
-	0x99, 0x16, 0xdf, 0x01, 0x44, 0x56, 0x29, 0x42, 0x84, 0x68, 0xe0, 0x5a, 0xdd, 0x7c, 0x1e, 0x63,
-	0x0e, 0x1b, 0xa9, 0x9c, 0xa0, 0xce, 0x9e, 0x3b, 0x33, 0x78, 0x6b, 0x5a, 0xdf, 0x4b, 0xe3, 0x61,
-	0x2e, 0x25, 0x8d, 0x87, 0x57, 0x7e, 0x3a, 0x53, 0x1f, 0xd3, 0xb1, 0xe8, 0x16, 0xd3, 0xe1, 0x1e,
-	0x12, 0xcb, 0x9d, 0xfb, 0x34, 0x24, 0x59, 0xec, 0x57, 0x7f, 0x79, 0x51, 0x01, 0x8c, 0x19, 0x9a,
-	0x13, 0x99, 0x8b, 0xc5, 0x47, 0x88, 0x3d, 0x60, 0x41, 0xbe, 0x2a, 0x37, 0x55, 0x76, 0x58, 0x4a,
-	0x51, 0x8a, 0xea, 0x69, 0x58, 0x7d, 0x41, 0x3a, 0xea, 0x8d, 0x30, 0x5a, 0xe3, 0x33, 0xfc, 0x17,
-	0xef, 0x4a, 0x7c, 0x34, 0x63, 0x13, 0xdd, 0x09, 0x1f, 0x16, 0xcf, 0xd4, 0xda, 0x7e, 0xb7, 0x28,
-	0x77, 0x6d, 0xbd, 0xc0, 0x96, 0x54, 0x6f, 0xb8, 0xfc, 0xa3, 0xf1, 0xb8, 0xf6, 0xff, 0x79, 0xfa,
-	0x09, 0x00, 0x00, 0xff, 0xff, 0x8a, 0x17, 0x0f, 0xaf, 0xb1, 0x01, 0x00, 0x00,
+	// 361 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x52, 0x41, 0xae, 0xd3, 0x30,
+	0x10, 0xc5, 0x6d, 0x12, 0xd2, 0xa9, 0x12, 0x22, 0x0b, 0xa1, 0xa8, 0x62, 0x11, 0x45, 0x2c, 0x22,
+	0x16, 0x45, 0x84, 0x0a, 0xb1, 0xe7, 0x06, 0xb9, 0x40, 0xe5, 0xc6, 0x6e, 0x6b, 0x91, 0xc4, 0x96,
+	0xed, 0xd0, 0xf6, 0x4e, 0x5c, 0x88, 0xdb, 0x20, 0xbb, 0x4e, 0x89, 0x10, 0xfa, 0xfa, 0x7f, 0xf7,
+	0xde, 0xbc, 0x79, 0x33, 0xf3, 0x12, 0x43, 0x7a, 0xe0, 0x8a, 0x7e, 0x17, 0x7d, 0xbf, 0x95, 0x4a,
+	0x18, 0x81, 0xe3, 0x89, 0x97, 0xdf, 0x20, 0x52, 0x4c, 0x8f, 0x9d, 0xc1, 0x6f, 0x21, 0x54, 0x4c,
+	0x76, 0xb7, 0x1c, 0x15, 0xa8, 0x5a, 0x35, 0x77, 0x82, 0x73, 0x78, 0xad, 0xc7, 0xb6, 0x65, 0x5a,
+	0xe7, 0x8b, 0x02, 0x55, 0x71, 0x33, 0xd1, 0xf2, 0x17, 0x82, 0x40, 0x32, 0xa6, 0x30, 0x86, 0x60,
+	0x20, 0x3d, 0xf3, 0x3e, 0x87, 0x71, 0x01, 0x6b, 0xca, 0x74, 0xab, 0xb8, 0x34, 0x5c, 0x0c, 0xce,
+	0xba, 0x6a, 0xe6, 0x25, 0x3b, 0x98, 0x50, 0xaa, 0xec, 0xe0, 0xa5, 0x53, 0x27, 0x8a, 0x53, 0x58,
+	0x10, 0x9d, 0x07, 0x05, 0xaa, 0x92, 0x66, 0x41, 0x34, 0xde, 0x40, 0x2c, 0x89, 0xd6, 0x17, 0xa1,
+	0x68, 0x1e, 0xba, 0xd6, 0x07, 0xc7, 0x15, 0x44, 0x47, 0xd2, 0xf3, 0xee, 0x96, 0x47, 0x05, 0xaa,
+	0xd2, 0x3a, 0xdb, 0x3e, 0x92, 0xde, 0xeb, 0x8d, 0xd7, 0xcb, 0x1a, 0xc0, 0x5e, 0xbb, 0x3f, 0x29,
+	0x31, 0x4a, 0xfc, 0x01, 0x42, 0x07, 0x72, 0x54, 0x2c, 0xab, 0x75, 0x9d, 0xfe, 0xb5, 0xd9, 0xa6,
+	0xe6, 0x2e, 0x96, 0x17, 0x08, 0x95, 0x18, 0x0d, 0xc3, 0xef, 0x20, 0x92, 0x8a, 0x1d, 0xf9, 0xd5,
+	0x87, 0xf4, 0xcc, 0x46, 0xef, 0x89, 0xfe, 0xe1, 0xf2, 0x25, 0x8d, 0xc3, 0x36, 0xd8, 0xc0, 0xae,
+	0xe6, 0x2c, 0xe4, 0x14, 0xcc, 0xd3, 0xd9, 0xb1, 0xc1, 0xd3, 0xc7, 0x7e, 0x7c, 0x3f, 0x75, 0xe2,
+	0x18, 0x02, 0x2e, 0x7f, 0xee, 0xb2, 0x57, 0x1e, 0x7d, 0xcd, 0x50, 0xfd, 0x1b, 0xc1, 0xca, 0x3a,
+	0xf7, 0xad, 0xe8, 0x7b, 0xfc, 0x19, 0x12, 0x42, 0xe9, 0x7e, 0x60, 0xfc, 0x74, 0x3e, 0x88, 0x51,
+	0xe1, 0x7f, 0xc2, 0x6c, 0x66, 0x6b, 0xfc, 0xaf, 0xde, 0x41, 0x46, 0x59, 0xc7, 0x0c, 0x7b, 0x91,
+	0xeb, 0x13, 0x80, 0x5d, 0xa4, 0x0d, 0x31, 0xbc, 0xc5, 0x6f, 0x66, 0xba, 0xfd, 0x46, 0xff, 0x31,
+	0xd4, 0x90, 0xf8, 0x35, 0xcf, 0xf6, 0x1c, 0x22, 0xf7, 0x40, 0xbf, 0xfc, 0x09, 0x00, 0x00, 0xff,
+	0xff, 0x29, 0xd4, 0xbb, 0xda, 0xb2, 0x02, 0x00, 0x00,
 }
