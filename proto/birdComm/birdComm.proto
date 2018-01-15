@@ -34,6 +34,10 @@ message route {
     family family = 4;
 }
 
+message route_group {
+     repeated route routes = 1;
+ }
+
 enum family {
     ipv4 = 0;
     ipv6 = 1;

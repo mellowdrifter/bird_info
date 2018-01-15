@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -74,26 +75,52 @@ func connectBird(af uint32, command []byte) ([]string, error) {
 
 func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
 	// Get existing peers locally
-	peers, err := loadExisting()
+	peers, err := loadExistingPeers()
 	if err != nil {
 		return nil, err
 	}
 
-	// Append new peer
-	peers.Group = append(peers.Group, p)
+	// TO-DO
+	// If peer already exists with same settings, then we should just return success
+	// If any part is different, we should delete that peer and re-add it with new config
 
-	// Write config to temp file
-	out, err := os.Create("/tmp/test.conf")
+	// Append new peer
+	newPeers := append(peers.Group, p)
+
+	// Write new BGP peer config
+	out, err := os.Create("/etc/bird/bird_bgp.conf")
 	if err != nil {
 		return nil, err
 	}
 	defer out.Close()
 	t := template.Must(template.New("bgp").Parse(bgp))
-	t.Execute(out, peers.GetGroup())
+	t.Execute(out, newPeers)
+	out.Close()
 
 	// Test that config will load in bird
+	// TO-DO - We can just try to configure direct. If it fails we go back to previous config
+	resp, err := checkConfig()
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, nil
+	// New config may not load. Reload the old config
+	// and return error
+	if !resp.GetSuccess() {
+		out, err := os.Create("/etc/bird/bird_bgp.conf")
+		if err != nil {
+			return nil, err
+		}
+		defer out.Close()
+		t := template.Must(template.New("bgp").Parse(bgp))
+		t.Execute(out, peers.Group)
+		return resp, errors.New("New config not loaded. Restoring old config")
+
+	}
+
+	// Else we are good.
+	// TO-DO - need to marshal the new peer like existing. But where?
+	return resp, err
 }
 func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
 	return nil, nil
@@ -105,48 +132,47 @@ func (s *server) DeleteStatic(ctx context.Context, p *pb.Route) (*pb.Result, err
 	return nil, nil
 }
 
-/*func ReloadConfig(f *pb.Family) error {
+func reloadConfig() (*pb.Result, error) {
 	query := []byte("configure\n")
 
-	reply, err := connectBird(f.GetAf(), query)
+	reply, err := connectBird(4, query)
 	if err != nil {
-		return &pb.ConfReply{}, err
+		return nil, err
 	}
 
 	for _, line := range reply {
 		if strings.Contains(line, "Reconfigured") {
-			return &pb.ConfReply{
+			return &pb.Result{
 				Reply:   line,
 				Success: true,
 			}, nil
 		}
 	}
 	// Return empty string and false if config check not ok
-	return &pb.ConfReply{}, fmt.Errorf("Error on reloading")
-}*/
+	return nil, fmt.Errorf("Error on reloading")
+}
 
-/*func (s *server) CheckConfig(ctx context.Context, f *pb.Family) (*pb.ConfReply, error) {
-	log.Printf("Received request to CheckConfig with argument %v", f.GetAf())
+func checkConfig() (*pb.Result, error) {
 	query := []byte("configure check\n")
 
-	reply, err := connectBird(f.GetAf(), query)
+	reply, err := connectBird(4, query)
 	if err != nil {
-		return &pb.ConfReply{}, err
+		return nil, err
 	}
 
 	for _, line := range reply {
 		if strings.Contains(line, "Configuration OK") {
-			return &pb.ConfReply{
+			return &pb.Result{
 				Reply:   line,
 				Success: true,
 			}, nil
 		}
 	}
 	// Return empty string and false if config check not ok
-	return &pb.ConfReply{}, fmt.Errorf("Error with checking config")
-}*/
+	return nil, fmt.Errorf("Error with checking config")
+}
 
-func loadExisting() (*pb.PeerGroup, error) {
+func loadExistingPeers() (*pb.PeerGroup, error) {
 	in, err := ioutil.ReadFile("neighbours.pb.txt")
 	if err != nil {
 		return nil, err
@@ -158,4 +184,18 @@ func loadExisting() (*pb.PeerGroup, error) {
 		return nil, err
 	}
 	return peers, nil
+}
+
+func loadExistingRoutes() (*pb.RouteGroup, error) {
+	in, err := ioutil.ReadFile("routes.pb.txt")
+	if err != nil {
+		return nil, err
+	}
+
+	routes := &pb.RouteGroup{}
+	err = proto.UnmarshalText(string(in), routes)
+	if err != nil {
+		return nil, err
+	}
+	return routes, nil
 }
