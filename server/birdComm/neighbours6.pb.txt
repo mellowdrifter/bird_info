@@ -1,0 +1,13 @@
+group: <
+  name: "R2"
+  description: "Company 2"
+  address: "2001:2::2"
+  as: 200
+  password: "password123"
+>
+group: <
+  name: "R3"
+  description: "Company 3"
+  address: "2001:3::3"
+  as: 300
+>

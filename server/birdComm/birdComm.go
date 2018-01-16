@@ -3,12 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	"html/template"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"strings"
+	"text/template"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/mellowdrifter/bird_info/proto/birdComm"
@@ -74,6 +74,7 @@ func connectBird(af uint32, command []byte) ([]string, error) {
 }
 
 func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
+	log.Printf("Received a request for a new peer named %v\n", p.GetName())
 	// Get existing peers locally
 	peers, err := loadExistingPeers()
 	if err != nil {
@@ -88,7 +89,7 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	newPeers := append(peers.Group, p)
 
 	// Write new BGP peer config
-	out, err := os.Create("/etc/bird/bird_bgp.conf")
+	out, err := os.Create("/etc/bird/bird6_bgp.conf")
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +100,7 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 
 	// Test that config will load in bird
 	// TO-DO - We can just try to configure direct. If it fails we go back to previous config
-	resp, err := checkConfig()
+	resp, err := reloadConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +108,7 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	// New config may not load. Reload the old config
 	// and return error
 	if !resp.GetSuccess() {
-		out, err := os.Create("/etc/bird/bird_bgp.conf")
+		out, err := os.Create("/etc/bird/bird_bgp6.conf")
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +136,7 @@ func (s *server) DeleteStatic(ctx context.Context, p *pb.Route) (*pb.Result, err
 func reloadConfig() (*pb.Result, error) {
 	query := []byte("configure\n")
 
-	reply, err := connectBird(4, query)
+	reply, err := connectBird(6, query)
 	if err != nil {
 		return nil, err
 	}
@@ -152,28 +153,8 @@ func reloadConfig() (*pb.Result, error) {
 	return nil, fmt.Errorf("Error on reloading")
 }
 
-func checkConfig() (*pb.Result, error) {
-	query := []byte("configure check\n")
-
-	reply, err := connectBird(4, query)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, line := range reply {
-		if strings.Contains(line, "Configuration OK") {
-			return &pb.Result{
-				Reply:   line,
-				Success: true,
-			}, nil
-		}
-	}
-	// Return empty string and false if config check not ok
-	return nil, fmt.Errorf("Error with checking config")
-}
-
 func loadExistingPeers() (*pb.PeerGroup, error) {
-	in, err := ioutil.ReadFile("neighbours.pb.txt")
+	in, err := ioutil.ReadFile("neighbours6.pb.txt")
 	if err != nil {
 		return nil, err
 	}

@@ -20,10 +20,10 @@ func main() {
 	client := pb.NewBirdCommClient(conn)
 
 	resp, err := client.AddNeighbour(context.Background(), &pb.Peer{
-		Name:        "peer11",
-		Description: "This is peer 11",
-		Address:     "11.11.11.11",
-		As:          11,
+		Name:        "peer12",
+		Description: "This is peer 12",
+		Address:     "2001:12::12",
+		As:          12,
 	})
 	if err != nil {
 		log.Fatalf("Received an error from gRPC server: %v", err)
