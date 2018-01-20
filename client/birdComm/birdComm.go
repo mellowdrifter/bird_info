@@ -22,8 +22,9 @@ func main() {
 	resp, err := client.AddNeighbour(context.Background(), &pb.Peer{
 		Name:        "peer12",
 		Description: "This is peer 12",
-		Address:     "2001:12::12",
+		Address:     "2001::1",
 		As:          12,
+		Family:      pb.Family_ipv4,
 	})
 	if err != nil {
 		log.Fatalf("Received an error from gRPC server: %v", err)

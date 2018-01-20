@@ -39,7 +39,8 @@ message route_group {
  }
 
 enum family {
-    ipv4 = 0;
-    ipv6 = 1;
+    unknown = 0;
+    ipv4 = 1;
+    ipv6 = 2;
 }
 

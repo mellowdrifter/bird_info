@@ -17,6 +17,14 @@ import (
 )
 
 type server struct{}
+type configFiles struct {
+	bird          string
+	family        uint8
+	bgpConfig     string
+	staticConfig  string
+	bgpMarshal    string
+	staticMarshal string
+}
 
 func main() {
 
@@ -32,18 +40,9 @@ func main() {
 	grpcServer.Serve(lis)
 }
 
-func connectBird(af uint32, command []byte) ([]string, error) {
+func connectBird(c *configFiles, command []byte) ([]string, error) {
 
-	var bird string
-	switch af {
-	case 4:
-		bird = "/var/run/bird/bird.ctl"
-	case 6:
-		bird = "/var/run/bird/bird6.ctl"
-	default:
-		return []string{}, fmt.Errorf("Need to pass a supported address family")
-	}
-	conn, err := net.Dial("unix", bird)
+	conn, err := net.Dial("unix", c.bird)
 	if err != nil {
 		return []string{}, err
 	}
@@ -68,15 +67,48 @@ func connectBird(af uint32, command []byte) ([]string, error) {
 		return []string{}, err
 	}
 
+	// return the rest of the output
 	output := string(buf[:n])
 	return strings.Split(output, "\n"), nil
 
 }
 
+func getConfig(p *pb.Peer) configFiles {
+	switch p.GetFamily().String() {
+	case "ipv4":
+		return configFiles{
+			bird:          "/var/run/bird/bird.ctl",
+			family:        4,
+			bgpConfig:     "/etc/bird/bird4_bgp.conf",
+			staticConfig:  "/etc/bird/bird4_static.conf",
+			bgpMarshal:    "neighbours4.pb.txt",
+			staticMarshal: "static4.pb.txt",
+		}
+	case "ipv6":
+		return configFiles{
+			bird:          "/var/run/bird/bird6.ctl",
+			family:        6,
+			bgpConfig:     "/etc/bird/bird6_bgp.conf",
+			staticConfig:  "/etc/bird/bird6_static.conf",
+			bgpMarshal:    "neighbours6.pb.txt",
+			staticMarshal: "static6.pb.txt",
+		}
+	default:
+		return configFiles{}
+	}
+}
+
 func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
-	log.Printf("Received a request for a new peer named %v\n", p.GetName())
+	conf := getConfig(p)
+
+	switch conf.family {
+	case 4:
+		log.Printf("Received a request for a new IPv4 peer named %v\n", p.GetName())
+	case 6:
+		log.Printf("Received a request for a new IPv6 peer named %v\n", p.GetName())
+	}
 	// Get existing peers locally
-	peers, err := loadExistingPeers()
+	peers, err := loadExistingPeers(p, &conf)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +121,7 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	newPeers := append(peers.Group, p)
 
 	// Write new BGP peer config
-	out, err := os.Create("/etc/bird/bird6_bgp.conf")
+	out, err := os.Create(conf.bgpConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +132,7 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 
 	// Test that config will load in bird
 	// TO-DO - We can just try to configure direct. If it fails we go back to previous config
-	resp, err := reloadConfig()
+	resp, err := reloadConfig(&conf)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +140,7 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	// New config may not load. Reload the old config
 	// and return error
 	if !resp.GetSuccess() {
-		out, err := os.Create("/etc/bird/bird_bgp6.conf")
+		out, err := os.Create(conf.bgpConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -133,10 +165,10 @@ func (s *server) DeleteStatic(ctx context.Context, p *pb.Route) (*pb.Result, err
 	return nil, nil
 }
 
-func reloadConfig() (*pb.Result, error) {
+func reloadConfig(c *configFiles) (*pb.Result, error) {
 	query := []byte("configure\n")
 
-	reply, err := connectBird(6, query)
+	reply, err := connectBird(c, query)
 	if err != nil {
 		return nil, err
 	}
@@ -153,8 +185,8 @@ func reloadConfig() (*pb.Result, error) {
 	return nil, fmt.Errorf("Error on reloading")
 }
 
-func loadExistingPeers() (*pb.PeerGroup, error) {
-	in, err := ioutil.ReadFile("neighbours6.pb.txt")
+func loadExistingPeers(p *pb.Peer, c *configFiles) (*pb.PeerGroup, error) {
+	in, err := ioutil.ReadFile(c.bgpMarshal)
 	if err != nil {
 		return nil, err
 	}
