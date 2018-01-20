@@ -20,10 +20,10 @@ func main() {
 	client := pb.NewBirdCommClient(conn)
 
 	resp, err := client.AddNeighbour(context.Background(), &pb.Peer{
-		Name:        "peer12",
-		Description: "This is peer 12",
-		Address:     "2001::1",
-		As:          12,
+		Name:        "peer13",
+		Description: "This is peer 13",
+		Address:     "10.13.13.13",
+		As:          13,
 		Family:      pb.Family_ipv4,
 	})
 	if err != nil {

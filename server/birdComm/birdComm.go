@@ -98,6 +98,16 @@ func getConfig(p *pb.Peer) configFiles {
 	}
 }
 
+func reMarshal(c *configFiles, pg *pb.PeerGroup) error {
+	out, _ := os.Create(c.bgpMarshal)
+
+	err := proto.MarshalText(out, pg)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
 	conf := getConfig(p)
 
@@ -116,43 +126,41 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	// TO-DO
 	// If peer already exists with same settings, then we should just return success
 	// If any part is different, we should delete that peer and re-add it with new config
+	for _, peer := range peers.GetGroup() {
+		if proto.Equal(peer, p) {
+			return &pb.Result{
+				Reply:   "Peer already configured",
+				Success: true,
+			}, nil
+		}
+	}
 
 	// Append new peer
-	newPeers := append(peers.Group, p)
+	var newPeers pb.PeerGroup
+	newPeers.Group = append(peers.Group, p)
 
 	// Write new BGP peer config
 	out, err := os.Create(conf.bgpConfig)
 	if err != nil {
 		return nil, err
 	}
-	defer out.Close()
 	t := template.Must(template.New("bgp").Parse(bgp))
-	t.Execute(out, newPeers)
+	t.Execute(out, newPeers.Group)
 	out.Close()
 
-	// Test that config will load in bird
-	// TO-DO - We can just try to configure direct. If it fails we go back to previous config
+	// Check if new config loads. If not we need to rollback to the old config
 	resp, err := reloadConfig(&conf)
 	if err != nil {
-		return nil, err
-	}
-
-	// New config may not load. Reload the old config
-	// and return error
-	if !resp.GetSuccess() {
-		out, err := os.Create(conf.bgpConfig)
-		if err != nil {
-			return nil, err
-		}
+		out, _ := os.Create(conf.bgpConfig)
 		defer out.Close()
 		t := template.Must(template.New("bgp").Parse(bgp))
 		t.Execute(out, peers.Group)
 		return resp, errors.New("New config not loaded. Restoring old config")
-
 	}
 
 	// Else we are good.
 	// TO-DO - need to marshal the new peer like existing. But where?
+	err = reMarshal(&conf, &newPeers)
 	return resp, err
 }
 func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
@@ -174,7 +182,7 @@ func reloadConfig(c *configFiles) (*pb.Result, error) {
 	}
 
 	for _, line := range reply {
-		if strings.Contains(line, "Reconfigured") {
+		if strings.Contains(line, "Reconfigured") || strings.Contains(line, "Reconfiguration in progress") {
 			return &pb.Result{
 				Reply:   line,
 				Success: true,
