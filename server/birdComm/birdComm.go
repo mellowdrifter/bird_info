@@ -109,15 +109,11 @@ func reMarshal(c *configFiles, pg *pb.PeerGroup) error {
 }
 
 func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
+
+	// Load config for address family
 	conf := getConfig(p)
 
-	switch conf.family {
-	case 4:
-		log.Printf("Received a request for a new IPv4 peer named %v\n", p.GetName())
-	case 6:
-		log.Printf("Received a request for a new IPv6 peer named %v\n", p.GetName())
-	}
-	// Get existing peers locally
+	// Get existing peers
 	peers, err := loadExistingPeers(p, &conf)
 	if err != nil {
 		return nil, err
@@ -135,8 +131,8 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 		}
 	}
 
-	// Append new peer
 	var newPeers pb.PeerGroup
+	// Append new peer
 	newPeers.Group = append(peers.Group, p)
 
 	// Write new BGP peer config

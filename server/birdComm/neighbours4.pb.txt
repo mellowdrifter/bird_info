@@ -1,36 +1,25 @@
 group: <
-  name: "R2"
-  description: "Company 2"
-  address: "10.0.0.2"
-  as: 200
-  password: "password123"
-  family: ipv4
->
-group: <
-  name: "R3"
-  description: "Company 3"
-  address: "10.0.0.3"
-  as: 300
-  family: ipv4
->
-group: <
-  name: "R4"
-  description: "Company 4"
-  address: "10.0.0.4"
-  as: 400
-  family: ipv4
->
-group: <
-  name: "peer12"
-  description: "This is peer 12"
-  address: "10.12.12.12"
-  as: 12
-  family: ipv4
->
-group: <
   name: "peer13"
   description: "This is peer 13"
   address: "10.13.13.13"
-  as: 13
+  as: 14
+  family: ipv4
+>
+group: <
+  name: "peer50"
+  address: "50.50.50.50"
+  as: 50
+  family: ipv4
+>
+group: <
+  name: "peer51"
+  address: "50.50.50.51"
+  as: 51
+  family: ipv4
+>
+group: <
+  name: "peer52"
+  address: "50.50.50.52"
+  as: 52
   family: ipv4
 >
