@@ -98,10 +98,10 @@ func getConfig(p *pb.Peer) configFiles {
 	}
 }
 
-func reMarshal(c *configFiles, pg *pb.PeerGroup) error {
+func reMarshal(c *configFiles, m *proto.Message) error {
 	out, _ := os.Create(c.bgpMarshal)
 
-	err := proto.MarshalText(out, pg)
+	err := proto.MarshalText(out, *m)
 	if err != nil {
 		return err
 	}
