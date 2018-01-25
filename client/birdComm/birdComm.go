@@ -45,7 +45,7 @@ func main() {
 
 	client := pb.NewBirdCommClient(conn)
 
-	resp, err := client.AddNeighbour(context.Background(), &pb.Peer{
+	resp, err := client.DeleteNeighbour(context.Background(), &pb.Peer{
 		Name:        *name,
 		Description: *desc,
 		Address:     *address,

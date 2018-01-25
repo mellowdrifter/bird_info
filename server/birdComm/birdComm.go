@@ -98,10 +98,10 @@ func getConfig(p *pb.Peer) configFiles {
 	}
 }
 
-func reMarshal(c *configFiles, m *proto.Message) error {
+func reMarshal(c *configFiles, m proto.Message) error {
 	out, _ := os.Create(c.bgpMarshal)
 
-	err := proto.MarshalText(out, *m)
+	err := proto.MarshalText(out, m)
 	if err != nil {
 		return err
 	}
@@ -155,12 +155,47 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	}
 
 	// Else we are good.
-	// TO-DO - need to marshal the new peer like existing. But where?
+	// Remarshal the config locally to use for next time
 	err = reMarshal(&conf, &newPeers)
 	return resp, err
 }
 func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
-	return nil, nil
+	// Load config for address family
+	conf := getConfig(p)
+
+	// Get existing peers
+	peers, err := loadExistingPeers(p, &conf)
+	if err != nil {
+		return nil, err
+	}
+
+	var newPeers pb.PeerGroup
+	newPeers = remove(peers, p)
+
+	if len(newPeers.Group) == len(peers.Group) {
+		return &pb.Result{
+			Reply:   "Peer not configured",
+			Success: true,
+		}, nil
+	}
+	return nil, fmt.Errorf("Not implemented yet")
+
+}
+
+func remove(pg *pb.PeerGroup, p *pb.Peer) pb.PeerGroup {
+	var newPeers pb.PeerGroup
+	for _, peer := range pg.GetGroup() {
+		if !proto.Equal(p, peer) {
+			newPeers.Group = append(newPeers.Group, peer)
+		}
+	}
+	return newPeers
+
+	/*for i, v := range *pg {
+		if proto.Equal(p, &v) {
+			return append(*pg[:i], *pg[i+1:]...), true
+		}
+	}*/
 }
 func (s *server) AddStatic(ctx context.Context, p *pb.Route) (*pb.Result, error) {
 	return nil, nil
