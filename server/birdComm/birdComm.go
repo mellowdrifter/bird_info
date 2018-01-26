@@ -178,7 +178,30 @@ func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, e
 			Success: true,
 		}, nil
 	}
-	return nil, fmt.Errorf("Not implemented yet")
+
+	// Write new BGP peer config
+	out, err := os.Create(conf.bgpConfig)
+	if err != nil {
+		return nil, err
+	}
+	t := template.Must(template.New("bgp").Parse(bgp))
+	t.Execute(out, newPeers.Group)
+	out.Close()
+
+	// Check if new config loads. If not we need to rollback to the old config
+	resp, err := reloadConfig(&conf)
+	if err != nil {
+		out, _ := os.Create(conf.bgpConfig)
+		defer out.Close()
+		t := template.Must(template.New("bgp").Parse(bgp))
+		t.Execute(out, peers.Group)
+		return resp, errors.New("New config not loaded. Restoring old config")
+	}
+
+	// Else we are good.
+	// Remarshal the config locally to use for next time
+	err = reMarshal(&conf, &newPeers)
+	return resp, err
 
 }
 
