@@ -98,8 +98,36 @@ func getConfig(p *pb.Peer) configFiles {
 	}
 }
 
+func getConfigr(r *pb.Route) configFiles {
+	// TO-DO: This is a temp function. Need to ensure getConfig
+	// can be called with route or peer
+	switch r.GetFamily().String() {
+	case "ipv4":
+		return configFiles{
+			bird:          "/var/run/bird/bird.ctl",
+			family:        4,
+			bgpConfig:     "/etc/bird/bird4_bgp.conf",
+			staticConfig:  "/etc/bird/bird4_static.conf",
+			bgpMarshal:    "neighbours4.pb.txt",
+			staticMarshal: "static4.pb.txt",
+		}
+	case "ipv6":
+		return configFiles{
+			bird:          "/var/run/bird/bird6.ctl",
+			family:        6,
+			bgpConfig:     "/etc/bird/bird6_bgp.conf",
+			staticConfig:  "/etc/bird/bird6_static.conf",
+			bgpMarshal:    "neighbours6.pb.txt",
+			staticMarshal: "static6.pb.txt",
+		}
+	default:
+		return configFiles{}
+	}
+}
+
 func reMarshal(c *configFiles, m proto.Message) error {
-	out, _ := os.Create(c.bgpMarshal)
+	//out, _ := os.Create(c.bgpMarshal)
+	out, _ := os.Create(c.staticMarshal)
 
 	err := proto.MarshalText(out, m)
 	if err != nil {
@@ -114,7 +142,7 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	conf := getConfig(p)
 
 	// Get existing peers
-	peers, err := loadExistingPeers(p, &conf)
+	peers, err := loadExistingPeers(&conf)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +192,7 @@ func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, e
 	conf := getConfig(p)
 
 	// Get existing peers
-	peers, err := loadExistingPeers(p, &conf)
+	peers, err := loadExistingPeers(&conf)
 	if err != nil {
 		return nil, err
 	}
@@ -220,8 +248,51 @@ func remove(pg *pb.PeerGroup, p *pb.Peer) pb.PeerGroup {
 		}
 	}*/
 }
-func (s *server) AddStatic(ctx context.Context, p *pb.Route) (*pb.Result, error) {
-	return nil, nil
+func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error) {
+	// Load config for address family
+	conf := getConfigr(r)
+
+	// Get existing routes
+	routes, err := loadExistingRoutes(&conf)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, route := range routes.GetRoutes() {
+		if proto.Equal(route, r) {
+			return &pb.Result{
+				Reply:   "Route already configured",
+				Success: true,
+			}, nil
+		}
+	}
+
+	var newRoutes pb.RouteGroup
+	newRoutes.Routes = append(routes.Routes, r)
+
+	// Write new static route config
+	out, err := os.Create(conf.staticConfig)
+	if err != nil {
+		return nil, err
+	}
+	t := template.Must(template.New("static").Parse(static))
+	t.Execute(out, newRoutes.Routes)
+	out.Close()
+
+	// Check if new config loads. If not we need to rollback to the old config
+	resp, err := reloadConfig(&conf)
+	if err != nil {
+		out, _ := os.Create(conf.staticConfig)
+		defer out.Close()
+		t := template.Must(template.New("static").Parse(static))
+		t.Execute(out, routes.Routes)
+		return resp, errors.New("New config not loaded. Restoring old config")
+	}
+
+	// Else we are good.
+	// Remarshal the config locally to use for next time
+	err = reMarshal(&conf, &newRoutes)
+	return resp, err
 }
 func (s *server) DeleteStatic(ctx context.Context, p *pb.Route) (*pb.Result, error) {
 	return nil, nil
@@ -247,7 +318,7 @@ func reloadConfig(c *configFiles) (*pb.Result, error) {
 	return nil, fmt.Errorf("Error on reloading")
 }
 
-func loadExistingPeers(p *pb.Peer, c *configFiles) (*pb.PeerGroup, error) {
+func loadExistingPeers(c *configFiles) (*pb.PeerGroup, error) {
 	in, err := ioutil.ReadFile(c.bgpMarshal)
 	if err != nil {
 		return nil, err
@@ -261,8 +332,8 @@ func loadExistingPeers(p *pb.Peer, c *configFiles) (*pb.PeerGroup, error) {
 	return peers, nil
 }
 
-func loadExistingRoutes() (*pb.RouteGroup, error) {
-	in, err := ioutil.ReadFile("routes.pb.txt")
+func loadExistingRoutes(c *configFiles) (*pb.RouteGroup, error) {
+	in, err := ioutil.ReadFile(c.staticMarshal)
 	if err != nil {
 		return nil, err
 	}

@@ -17,9 +17,3 @@ group: <
   as: 51
   family: ipv4
 >
-group: <
-  name: "peer52"
-  address: "50.50.50.52"
-  as: 52
-  family: ipv4
->

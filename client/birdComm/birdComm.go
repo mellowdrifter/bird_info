@@ -27,6 +27,9 @@ func main() {
 	// Should use an IP library to ensure entered IP is valid
 	address := flag.String("address", "", "address of peer")
 	as := flag.Uint("as", 0, "as number of peer")
+	prefix := flag.String("prefix", "", "A prefix to get to")
+	mask := flag.Uint("mask", 0, "a subnet mask")
+	nexthop := flag.String("nexthop", "", "A nexthop")
 	flag.Parse()
 
 	if *action == "" {
@@ -34,9 +37,9 @@ func main() {
 	}
 
 	// We need a certain minimum of data to add a neighbour
-	if *name == "" || *address == "" || *as == 0 {
+	/*if *name == "" || *address == "" || *as == 0 {
 		log.Fatalln("At minimum, address, as, and name is required")
-	}
+	}*/
 
 	// TO-DO
 	// Need to be able to specify address family.... Should also ensure
@@ -58,6 +61,13 @@ func main() {
 		Family:      pb.Family_ipv4,
 	}
 
+	route := &pb.Route{
+		Prefix:  *prefix,
+		Mask:    uint32(*mask),
+		Nexthop: *nexthop,
+		Family:  pb.Family_ipv4,
+	}
+
 	switch *action {
 	case "DeleteNeighbour":
 		res, err := delete(peer, client)
@@ -71,8 +81,16 @@ func main() {
 			log.Fatalf("error received: %v\n", err)
 		}
 		fmt.Printf("%v\n", res)
+	case "AddRoute":
+		res, err := addS(route, client)
+		if err != nil {
+			log.Fatalf("error received: %v\n", err)
+		}
+		fmt.Printf("%v\n", res)
+	case "DeleteRoute":
+		log.Fatalf("Action not yet implemented")
 	default:
-		log.Fatalf("Action not implemented")
+		log.Fatalf("Must select a supported action")
 	}
 }
 
@@ -86,6 +104,14 @@ func delete(p *pb.Peer, client birdComm.BirdCommClient) (*pb.Result, error) {
 
 func add(p *pb.Peer, client birdComm.BirdCommClient) (*pb.Result, error) {
 	resp, err := client.AddNeighbour(context.Background(), p)
+	if err != nil {
+		log.Fatalf("Received an error from gRPC server: %v", err)
+	}
+	return resp, err
+}
+
+func addS(r *pb.Route, client birdComm.BirdCommClient) (*pb.Result, error) {
+	resp, err := client.AddStatic(context.Background(), r)
 	if err != nil {
 		log.Fatalf("Received an error from gRPC server: %v", err)
 	}
