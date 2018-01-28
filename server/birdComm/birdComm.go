@@ -241,12 +241,6 @@ func remove(pg *pb.PeerGroup, p *pb.Peer) pb.PeerGroup {
 		}
 	}
 	return newPeers
-
-	/*for i, v := range *pg {
-		if proto.Equal(p, &v) {
-			return append(*pg[:i], *pg[i+1:]...), true
-		}
-	}*/
 }
 func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error) {
 	// Load config for address family
@@ -277,6 +271,8 @@ func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error)
 	}
 	t := template.Must(template.New("static").Parse(static))
 	t.Execute(out, newRoutes.Routes)
+	fmt.Println("New Template...")
+	//t.Execute(os.Stdout, newRoutes.Routes)
 	out.Close()
 
 	// Check if new config loads. If not we need to rollback to the old config
