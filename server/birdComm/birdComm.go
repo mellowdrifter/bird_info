@@ -233,6 +233,7 @@ func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, e
 
 }
 
+// TO-DO - Consolidate the following two functions
 func remove(pg *pb.PeerGroup, p *pb.Peer) pb.PeerGroup {
 	var newPeers pb.PeerGroup
 	for _, peer := range pg.GetGroup() {
@@ -241,6 +242,16 @@ func remove(pg *pb.PeerGroup, p *pb.Peer) pb.PeerGroup {
 		}
 	}
 	return newPeers
+}
+
+func removeS(rg *pb.RouteGroup, r *pb.Route) pb.RouteGroup {
+	var newRoutes pb.RouteGroup
+	for _, route := range rg.GetRoutes() {
+		if !proto.Equal(r, route) {
+			newRoutes.Routes = append(newRoutes.Routes, route)
+		}
+	}
+	return newRoutes
 }
 func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error) {
 	// Load config for address family
@@ -271,7 +282,6 @@ func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error)
 	}
 	t := template.Must(template.New("static").Parse(static))
 	t.Execute(out, newRoutes.Routes)
-	fmt.Println("New Template...")
 	//t.Execute(os.Stdout, newRoutes.Routes)
 	out.Close()
 
@@ -290,8 +300,50 @@ func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error)
 	err = reMarshal(&conf, &newRoutes)
 	return resp, err
 }
-func (s *server) DeleteStatic(ctx context.Context, p *pb.Route) (*pb.Result, error) {
-	return nil, nil
+func (s *server) DeleteStatic(ctx context.Context, r *pb.Route) (*pb.Result, error) {
+	// Load config for address family
+	conf := getConfigr(r)
+
+	// Get existing routes
+	routes, err := loadExistingRoutes(&conf)
+	if err != nil {
+		return nil, err
+	}
+
+	var newRoutes pb.RouteGroup
+	newRoutes = removeS(routes, r)
+
+	if len(newRoutes.Routes) == len(routes.Routes) {
+		return &pb.Result{
+			Reply:   "Route not configured",
+			Success: true,
+		}, nil
+	}
+
+	// Write new static route config
+	out, err := os.Create(conf.staticConfig)
+	if err != nil {
+		return nil, err
+	}
+	t := template.Must(template.New("static").Parse(static))
+	t.Execute(out, newRoutes.Routes)
+	//t.Execute(os.Stdout, newRoutes.Routes)
+	out.Close()
+
+	// Check if new config loads. If not we need to rollback to the old config
+	resp, err := reloadConfig(&conf)
+	if err != nil {
+		out, _ := os.Create(conf.staticConfig)
+		defer out.Close()
+		t := template.Must(template.New("static").Parse(static))
+		t.Execute(out, routes.Routes)
+		return resp, errors.New("New config not loaded. Restoring old config")
+	}
+
+	// Else we are good.
+	// Remarshal the config locally to use for next time
+	err = reMarshal(&conf, &newRoutes)
+	return resp, err
 }
 
 func reloadConfig(c *configFiles) (*pb.Result, error) {
