@@ -88,7 +88,11 @@ func main() {
 		}
 		fmt.Printf("%v\n", res)
 	case "DeleteRoute":
-		log.Fatalf("Action not yet implemented")
+		res, err := deleteS(route, client)
+		if err != nil {
+			log.Fatalf("error received: %v\n", err)
+		}
+		fmt.Printf("%v\n", res)
 	default:
 		log.Fatalf("Must select a supported action")
 	}
@@ -112,6 +116,14 @@ func add(p *pb.Peer, client birdComm.BirdCommClient) (*pb.Result, error) {
 
 func addS(r *pb.Route, client birdComm.BirdCommClient) (*pb.Result, error) {
 	resp, err := client.AddStatic(context.Background(), r)
+	if err != nil {
+		log.Fatalf("Received an error from gRPC server: %v", err)
+	}
+	return resp, err
+}
+
+func deleteS(r *pb.Route, client birdComm.BirdCommClient) (*pb.Result, error) {
+	resp, err := client.DeleteStatic(context.Background(), r)
 	if err != nil {
 		log.Fatalf("Received an error from gRPC server: %v", err)
 	}
