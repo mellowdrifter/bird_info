@@ -10,6 +10,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/mellowdrifter/bird_info/proto/birdComm"
+
 	"github.com/golang/protobuf/proto"
 	pb "github.com/mellowdrifter/bird_info/proto/birdComm"
 	context "golang.org/x/net/context"
@@ -27,7 +29,7 @@ type configFiles struct {
 }
 
 func main() {
-
+	// Set up gRPC server
 	log.Println("Listening on port 1179")
 	lis, err := net.Listen("tcp", ":1179")
 	if err != nil {
@@ -73,35 +75,8 @@ func connectBird(c *configFiles, command []byte) ([]string, error) {
 
 }
 
-func getConfig(p *pb.Peer) configFiles {
-	switch p.GetFamily().String() {
-	case "ipv4":
-		return configFiles{
-			bird:          "/var/run/bird/bird.ctl",
-			family:        4,
-			bgpConfig:     "/etc/bird/bird4_bgp.conf",
-			staticConfig:  "/etc/bird/bird4_static.conf",
-			bgpMarshal:    "neighbours4.pb.txt",
-			staticMarshal: "static4.pb.txt",
-		}
-	case "ipv6":
-		return configFiles{
-			bird:          "/var/run/bird/bird6.ctl",
-			family:        6,
-			bgpConfig:     "/etc/bird/bird6_bgp.conf",
-			staticConfig:  "/etc/bird/bird6_static.conf",
-			bgpMarshal:    "neighbours6.pb.txt",
-			staticMarshal: "static6.pb.txt",
-		}
-	default:
-		return configFiles{}
-	}
-}
-
-func getConfigr(r *pb.Route) configFiles {
-	// TO-DO: This is a temp function. Need to ensure getConfig
-	// can be called with route or peer
-	switch r.GetFamily().String() {
+func getConfig(family string) configFiles {
+	switch family {
 	case "ipv4":
 		return configFiles{
 			bird:          "/var/run/bird/bird.ctl",
@@ -126,8 +101,14 @@ func getConfigr(r *pb.Route) configFiles {
 }
 
 func reMarshal(c *configFiles, m proto.Message) error {
-	//out, _ := os.Create(c.bgpMarshal)
-	out, _ := os.Create(c.staticMarshal)
+	var typeMarshal string
+	switch m.(type) {
+	case *birdComm.RouteGroup:
+		typeMarshal = c.staticMarshal
+	case *birdComm.PeerGroup:
+		typeMarshal = c.bgpMarshal
+	}
+	out, _ := os.Create(typeMarshal)
 
 	err := proto.MarshalText(out, m)
 	if err != nil {
@@ -139,7 +120,7 @@ func reMarshal(c *configFiles, m proto.Message) error {
 func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
 
 	// Load config for address family
-	conf := getConfig(p)
+	conf := getConfig(p.GetFamily().String())
 
 	// Get existing peers
 	peers, err := loadExistingPeers(&conf)
@@ -189,7 +170,7 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 }
 func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
 	// Load config for address family
-	conf := getConfig(p)
+	conf := getConfig(p.GetFamily().String())
 
 	// Get existing peers
 	peers, err := loadExistingPeers(&conf)
@@ -255,7 +236,7 @@ func removeS(rg *pb.RouteGroup, r *pb.Route) pb.RouteGroup {
 }
 func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error) {
 	// Load config for address family
-	conf := getConfigr(r)
+	conf := getConfig(r.GetFamily().String())
 
 	// Get existing routes
 	routes, err := loadExistingRoutes(&conf)
@@ -302,7 +283,7 @@ func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error)
 }
 func (s *server) DeleteStatic(ctx context.Context, r *pb.Route) (*pb.Result, error) {
 	// Load config for address family
-	conf := getConfigr(r)
+	conf := getConfig(r.GetFamily().String())
 
 	// Get existing routes
 	routes, err := loadExistingRoutes(&conf)
