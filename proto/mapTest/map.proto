@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package mapTest;
+
+message peer {
+    map<string, details> neighbour = 1;
+}
+
+message details {
+    string description = 1;
+    uint32 as = 2;
+}
