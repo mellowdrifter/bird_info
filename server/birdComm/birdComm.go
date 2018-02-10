@@ -43,7 +43,7 @@ func main() {
 }
 
 func connectBird(c *configFiles, command []byte) ([]string, error) {
-
+	// This reads the cruft off bird and ensure we get clean data back
 	conn, err := net.Dial("unix", c.bird)
 	if err != nil {
 		return []string{}, err
@@ -118,11 +118,18 @@ func reMarshal(c *configFiles, m proto.Message) error {
 }
 
 func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
+	log.Printf("Entering addNeighbour")
+	// TO-DO - Validate update:
+	// Ensure correct values in place
+	// Determine IPv4 vs IPv6
+	// Determine IP is valid
 
 	// Load config for address family
-	conf := getConfig(p.GetFamily().String())
+	// Fix when above validation is done
+	conf := getConfig("ipv4")
 
 	// Get existing peers
+	log.Printf("Get Existing")
 	peers, err := loadExistingPeers(&conf)
 	if err != nil {
 		return nil, err
@@ -131,36 +138,49 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	// TO-DO
 	// If peer already exists with same settings, then we should just return success
 	// If any part is different, we should delete that peer and re-add it with new config
-	for _, peer := range peers.GetGroup() {
-		if proto.Equal(peer, p) {
+	peerAddress := p.GetAddress()
+	log.Printf("Checking equal")
+	if _, ok := peers.Peer[peerAddress]; ok {
+		if proto.Equal(p, peers.Peer[peerAddress]) {
 			return &pb.Result{
 				Reply:   "Peer already configured",
 				Success: true,
 			}, nil
 		}
+		return &pb.Result{
+			Reply:   "Peer configured with different settings",
+			Success: true,
+		}, nil
+
 	}
 
-	var newPeers pb.PeerGroup
 	// Append new peer
-	newPeers.Group = append(peers.Group, p)
+	log.Printf("Appending")
+	newPeers := pb.PeerGroup{}
+	newPeers.Peer = make(map[string]*pb.Peer)
+	newPeers.Peer[peerAddress] = peers.Peer[peerAddress]
 
 	// Write new BGP peer config
+	log.Printf("Writing")
 	out, err := os.Create(conf.bgpConfig)
 	if err != nil {
 		return nil, err
 	}
 	t := template.Must(template.New("bgp").Parse(bgp))
-	t.Execute(out, newPeers.Group)
+	log.Printf("Templating")
+	t.Execute(out, newPeers.Peer)
 	out.Close()
 
 	// Check if new config loads. If not we need to rollback to the old config
+	log.Printf("Checking config")
 	resp, err := reloadConfig(&conf)
 	if err != nil {
 		out, _ := os.Create(conf.bgpConfig)
 		defer out.Close()
 		t := template.Must(template.New("bgp").Parse(bgp))
-		t.Execute(out, peers.Group)
-		return resp, errors.New("New config not loaded. Restoring old config")
+		t.Execute(os.Stdout, peers)
+		//return resp, errors.New("New config not loaded. Restoring old config")
+		return resp, err
 	}
 
 	// Else we are good.
@@ -169,8 +189,14 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	return resp, err
 }
 func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
+	// TO-DO - Validate update:
+	// Ensure correct values in place
+	// Determine IPv4 vs IPv6
+	// Determine IP is valid
+
 	// Load config for address family
-	conf := getConfig(p.GetFamily().String())
+	// Fix when above validation is done
+	conf := getConfig("ipv4")
 
 	// Get existing peers
 	peers, err := loadExistingPeers(&conf)
@@ -178,15 +204,17 @@ func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, e
 		return nil, err
 	}
 
-	var newPeers pb.PeerGroup
-	newPeers = remove(peers, p)
+	newPeers := pb.PeerGroup{}
+	//newPeers = remove(peers, p)
+	peerAddress := p.GetAddress()
+	delete(peers.GetPeer(), peerAddress)
 
-	if len(newPeers.Group) == len(peers.Group) {
+	/*if len(newPeers.Group) == len(peers.Group) {
 		return &pb.Result{
 			Reply:   "Peer not configured",
 			Success: true,
 		}, nil
-	}
+	} */
 
 	// Write new BGP peer config
 	out, err := os.Create(conf.bgpConfig)
@@ -194,7 +222,8 @@ func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, e
 		return nil, err
 	}
 	t := template.Must(template.New("bgp").Parse(bgp))
-	t.Execute(out, newPeers.Group)
+	//t.Execute(out, newPeers.Group)
+	t.Execute(out, peers.GetPeer())
 	out.Close()
 
 	// Check if new config loads. If not we need to rollback to the old config
@@ -203,7 +232,7 @@ func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, e
 		out, _ := os.Create(conf.bgpConfig)
 		defer out.Close()
 		t := template.Must(template.New("bgp").Parse(bgp))
-		t.Execute(out, peers.Group)
+		t.Execute(out, peers.GetPeer())
 		return resp, errors.New("New config not loaded. Restoring old config")
 	}
 
@@ -215,7 +244,7 @@ func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, e
 }
 
 // TO-DO - Consolidate the following two functions
-func remove(pg *pb.PeerGroup, p *pb.Peer) pb.PeerGroup {
+/*func remove(pg *pb.PeerGroup, p *pb.Peer) pb.PeerGroup {
 	var newPeers pb.PeerGroup
 	for _, peer := range pg.GetGroup() {
 		if !proto.Equal(p, peer) {
@@ -223,7 +252,7 @@ func remove(pg *pb.PeerGroup, p *pb.Peer) pb.PeerGroup {
 		}
 	}
 	return newPeers
-}
+}*/
 
 func removeS(rg *pb.RouteGroup, r *pb.Route) pb.RouteGroup {
 	var newRoutes pb.RouteGroup
@@ -236,7 +265,7 @@ func removeS(rg *pb.RouteGroup, r *pb.Route) pb.RouteGroup {
 }
 func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error) {
 	// Load config for address family
-	conf := getConfig(r.GetFamily().String())
+	conf := getConfig("IPv4")
 
 	// Get existing routes
 	routes, err := loadExistingRoutes(&conf)
@@ -283,7 +312,7 @@ func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error)
 }
 func (s *server) DeleteStatic(ctx context.Context, r *pb.Route) (*pb.Result, error) {
 	// Load config for address family
-	conf := getConfig(r.GetFamily().String())
+	conf := getConfig("IPv4")
 
 	// Get existing routes
 	routes, err := loadExistingRoutes(&conf)

@@ -32,10 +32,6 @@ func main() {
 		log.Fatalf("Need an action to perform")
 	}
 
-	// TO-DO
-	// Need to be able to specify address family.... Should also ensure
-	// it's valid
-
 	// Set up connection to server
 	serverConn := fmt.Sprintf("%v:1179", *server)
 	conn, err := grpc.Dial(serverConn, grpc.WithInsecure())
@@ -46,42 +42,42 @@ func main() {
 	client := pb.NewBirdCommClient(conn)
 
 	// Fill peer and route messages with parsed data
-	peer := &pb.Peer{
+	peer := pb.Peer{
+		Address:     *address,
 		Name:        *name,
 		Description: *desc,
-		Address:     *address,
 		As:          uint32(*as),
-		Family:      pb.Family_ipv4,
 	}
 
-	route := &pb.Route{
+	route := pb.Route{
 		Prefix:  *prefix,
 		Mask:    uint32(*mask),
 		Nexthop: *nexthop,
-		Family:  pb.Family_ipv4,
 	}
 
+	// check action
+	// TO-DO - Would be good to print out these options
 	switch *action {
 	case "AddPeer":
-		res, err := peerAction(peer, client, true)
+		res, err := peerAction(&peer, client, true)
 		if err != nil {
 			log.Fatalf("error received: %v\n", err)
 		}
 		fmt.Printf("%v\n", res)
 	case "DeletePeer":
-		res, err := peerAction(peer, client, false)
+		res, err := peerAction(&peer, client, false)
 		if err != nil {
 			log.Fatalf("error received: %v\n", err)
 		}
 		fmt.Printf("%v\n", res)
 	case "AddRoute":
-		res, err := routeAction(route, client, true)
+		res, err := routeAction(&route, client, true)
 		if err != nil {
 			log.Fatalf("error received: %v\n", err)
 		}
 		fmt.Printf("%v\n", res)
 	case "DeleteRoute":
-		res, err := routeAction(route, client, false)
+		res, err := routeAction(&route, client, false)
 		if err != nil {
 			log.Fatalf("error received: %v\n", err)
 		}

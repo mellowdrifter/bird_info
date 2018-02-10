@@ -14,33 +14,24 @@ message result {
     bool success = 2;
 }
 
-message peer {
-    string name = 1;
-    string description = 2;
-    string address = 3;
-    uint32 as = 4;
-    string password = 5;
-    family family = 6; 
+message peer_group {
+    map<string, peer> peer = 1;
 }
 
-message peer_group {
-    repeated peer group = 1;
+message peer {
+    string address = 1;
+    string name = 2;
+    uint32 as = 3;
+    string description = 4;
+    string password = 5;
 }
 
 message route {
     string prefix = 1;
     uint32 mask = 2;
     string nexthop = 3;
-    family family = 4;
 }
 
 message route_group {
      repeated route routes = 1;
  }
-
-enum family {
-    unknown = 0;
-    ipv4 = 1;
-    ipv6 = 2;
-}
-
