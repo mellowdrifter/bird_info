@@ -119,6 +119,9 @@ func reMarshal(c *configFiles, m proto.Message) error {
 
 func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
 	log.Printf("Entering addNeighbour")
+	log.Printf("Adding neighbour %v", p.GetAddress())
+	log.Printf("Adding AS %v", p.GetAs())
+	log.Printf("Adding name %v", p.GetName())
 	// TO-DO - Validate update:
 	// Ensure correct values in place
 	// Determine IPv4 vs IPv6
@@ -131,6 +134,7 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	// Get existing peers
 	log.Printf("Get Existing")
 	peers, err := loadExistingPeers(&conf)
+	log.Printf("%v\n", peers)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +142,7 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	// TO-DO
 	// If peer already exists with same settings, then we should just return success
 	// If any part is different, we should delete that peer and re-add it with new config
+	// Also can't have same name...
 	peerAddress := p.GetAddress()
 	log.Printf("Checking equal")
 	if _, ok := peers.Peer[peerAddress]; ok {
@@ -158,27 +163,32 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	log.Printf("Appending")
 	newPeers := pb.PeerGroup{}
 	newPeers.Peer = make(map[string]*pb.Peer)
-	newPeers.Peer[peerAddress] = peers.Peer[peerAddress]
+	// Is there a better way of doing a map copy?
+	for k, v := range peers.GetPeer() {
+		newPeers.Peer[k] = v
+	}
+	newPeers.Peer[peerAddress] = p
 
 	// Write new BGP peer config
 	log.Printf("Writing")
 	out, err := os.Create(conf.bgpConfig)
+	defer out.Close()
 	if err != nil {
 		return nil, err
 	}
 	t := template.Must(template.New("bgp").Parse(bgp))
 	log.Printf("Templating")
-	t.Execute(out, newPeers.Peer)
-	out.Close()
+	t.Execute(out, newPeers.GetPeer())
 
 	// Check if new config loads. If not we need to rollback to the old config
 	log.Printf("Checking config")
 	resp, err := reloadConfig(&conf)
 	if err != nil {
+		log.Printf("Error")
 		out, _ := os.Create(conf.bgpConfig)
 		defer out.Close()
 		t := template.Must(template.New("bgp").Parse(bgp))
-		t.Execute(os.Stdout, peers)
+		t.Execute(os.Stdout, peers.GetPeer())
 		//return resp, errors.New("New config not loaded. Restoring old config")
 		return resp, err
 	}

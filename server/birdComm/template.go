@@ -1,9 +1,9 @@
 package main
 
-const bgp = `{{range $k, $v := .Peer}}
+const bgp = `{{range $k, $v := .}}
 protocol bgp {{$v.Name}} from peers {
-  description "{{$v.Description}}";
-  neighbor {{$v.Address}} as {{$v.As}};
+  {{with $v.Description}}description "{{.}}";{{end}}
+  neighbor {{$k}} as {{$v.As}};
 }
 {{end}}
 `
