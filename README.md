@@ -2,7 +2,7 @@
 
 Bird brain is a service that listens for messages and reconfigured a local instance of bird to match those messages.
 
-##Supported actions
+## Supported actions
 * AddPeer - Adds a new BGP peer
 * DeletePeer - Delete a BGP peer
 * AddRoute - Adds a static route
