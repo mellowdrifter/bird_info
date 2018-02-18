@@ -171,7 +171,6 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 		defer out.Close()
 		t := template.Must(template.New("bgp").Parse(bgp))
 		t.Execute(out, peers.GetPeer())
-		//return resp, errors.New("New config not loaded. Restoring old config")
 		return resp, err
 	}
 
@@ -222,7 +221,6 @@ func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, e
 		return nil, err
 	}
 	t := template.Must(template.New("bgp").Parse(bgp))
-	//t.Execute(out, newPeers.Group)
 	t.Execute(out, newPeers.GetPeer())
 	out.Close()
 
@@ -233,7 +231,7 @@ func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, e
 		defer out.Close()
 		t := template.Must(template.New("bgp").Parse(bgp))
 		t.Execute(out, peers.GetPeer())
-		return resp, errors.New("New config not loaded. Restoring old config")
+		return resp, err
 	}
 
 	// Else we are good.
@@ -373,6 +371,7 @@ func reloadConfig(c *configFiles) (*pb.Result, error) {
 		}
 	}
 	// Return empty string and false if config check not ok
+	// TO-DO - Return actual error. Otherwise difficult to troubleshoot what went wrong
 	return nil, fmt.Errorf("Error on reloading")
 }
 
