@@ -1,16 +1,9 @@
 peer: <
-  key: "5.1.5.6"
+  key: "5.1.5.3"
   value: <
-    address: "5.1.5.6"
-    name: "peer26"
-    as: 25
-  >
->
-peer: <
-  key: "5.1.5.7"
-  value: <
-    address: "5.1.5.7"
-    name: "peer27"
-    as: 25
+    address: "5.1.5.3"
+    name: "peer3"
+    as: 30
+    description: "This is peer 308"
   >
 >

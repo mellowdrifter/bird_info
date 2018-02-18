@@ -18,7 +18,7 @@ func main() {
 	// Get new peer data
 	server := flag.String("server", "localhost", "Config server")
 	name := flag.String("name", "", "new peer name")
-	description := flag.String("description,", "", "description of peer")
+	desc := flag.String("desc", "", "description of peer")
 	action := flag.String("action", "", "action to perform")
 	address := flag.String("address", "", "address of peer")
 	as := flag.Uint("as", 0, "as number of peer")
@@ -45,7 +45,7 @@ func main() {
 	peer := pb.Peer{
 		Address:     *address,
 		Name:        *name,
-		Description: *description,
+		Description: *desc,
 		As:          uint32(*as),
 	}
 

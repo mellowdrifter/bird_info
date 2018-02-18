@@ -118,10 +118,7 @@ func reMarshal(c *configFiles, m proto.Message) error {
 }
 
 func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
-	log.Printf("Entering addNeighbour")
-	log.Printf("Adding neighbour %v", p.GetAddress())
-	log.Printf("Adding AS %v", p.GetAs())
-	log.Printf("Adding name %v", p.GetName())
+	log.Printf("Adding peer %v", p.GetAddress())
 	// TO-DO - Validate update:
 	// Ensure correct values in place
 	// Determine IPv4 vs IPv6
@@ -132,19 +129,14 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	conf := getConfig("ipv4")
 
 	// Get existing peers
-	log.Printf("Get Existing")
 	peers, err := loadExistingPeers(&conf)
-	log.Printf("%v\n", peers)
 	if err != nil {
 		return nil, err
 	}
 
-	// TO-DO
 	// If peer already exists with same settings, then we should just return success
-	// If any part is different, we should delete that peer and re-add it with new config
-	// Also can't have same name...
+	// If any setting is different, we'll just override the current peer with new settings
 	peerAddress := p.GetAddress()
-	log.Printf("Checking equal")
 	if _, ok := peers.Peer[peerAddress]; ok {
 		if proto.Equal(p, peers.Peer[peerAddress]) {
 			return &pb.Result{
@@ -152,15 +144,9 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 				Success: true,
 			}, nil
 		}
-		return &pb.Result{
-			Reply:   "Peer configured with different settings",
-			Success: true,
-		}, nil
-
 	}
 
 	// Append new peer
-	log.Printf("Appending")
 	newPeers := pb.PeerGroup{}
 	newPeers.Peer = make(map[string]*pb.Peer)
 	// Is there a better way of doing a map copy?
@@ -170,25 +156,21 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	newPeers.Peer[peerAddress] = p
 
 	// Write new BGP peer config
-	log.Printf("Writing")
 	out, err := os.Create(conf.bgpConfig)
 	defer out.Close()
 	if err != nil {
 		return nil, err
 	}
 	t := template.Must(template.New("bgp").Parse(bgp))
-	log.Printf("Templating")
 	t.Execute(out, newPeers.GetPeer())
 
 	// Check if new config loads. If not we need to rollback to the old config
-	log.Printf("Checking config")
 	resp, err := reloadConfig(&conf)
 	if err != nil {
-		log.Printf("Error")
 		out, _ := os.Create(conf.bgpConfig)
 		defer out.Close()
 		t := template.Must(template.New("bgp").Parse(bgp))
-		t.Execute(os.Stdout, peers.GetPeer())
+		t.Execute(out, peers.GetPeer())
 		//return resp, errors.New("New config not loaded. Restoring old config")
 		return resp, err
 	}
@@ -199,6 +181,8 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	return resp, err
 }
 func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
+	log.Printf("Removing peer %v", p.GetAddress())
+
 	// TO-DO - Validate update:
 	// Ensure correct values in place
 	// Determine IPv4 vs IPv6
@@ -214,17 +198,23 @@ func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, e
 		return nil, err
 	}
 
-	newPeers := pb.PeerGroup{}
-	//newPeers = remove(peers, p)
+	// If peer is not configured, just return success
 	peerAddress := p.GetAddress()
-	delete(peers.GetPeer(), peerAddress)
-
-	/*if len(newPeers.Group) == len(peers.Group) {
+	if _, ok := peers.Peer[peerAddress]; !ok {
 		return &pb.Result{
 			Reply:   "Peer not configured",
 			Success: true,
 		}, nil
-	} */
+	}
+
+	// Create new peergroup and remove peer from the group
+	newPeers := pb.PeerGroup{}
+	newPeers.Peer = make(map[string]*pb.Peer)
+	// Is there a better way of doing a map copy?
+	for k, v := range peers.GetPeer() {
+		newPeers.Peer[k] = v
+	}
+	delete(newPeers.GetPeer(), peerAddress)
 
 	// Write new BGP peer config
 	out, err := os.Create(conf.bgpConfig)
@@ -233,7 +223,7 @@ func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, e
 	}
 	t := template.Must(template.New("bgp").Parse(bgp))
 	//t.Execute(out, newPeers.Group)
-	t.Execute(out, peers.GetPeer())
+	t.Execute(out, newPeers.GetPeer())
 	out.Close()
 
 	// Check if new config loads. If not we need to rollback to the old config

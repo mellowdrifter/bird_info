@@ -1,10 +1,11 @@
 package main
 
-const bgp = `{{range $k, $v := .}}
+const bgp = `{{range $k, $v := . -}}
 protocol bgp {{$v.Name}} from peers {
-  {{with $v.Description}}description "{{.}}";{{end}}
   neighbor {{$k}} as {{$v.As}};
+  {{with $v.Description}}description "{{.}}";{{end}}
 }
+
 {{end}}
 `
 
