@@ -95,6 +95,14 @@ func getConfig(family string) configFiles {
 			bgpMarshal:    "neighbours6.pb.txt",
 			staticMarshal: "static6.pb.txt",
 		}
+	case "2":
+		return configFiles{
+			bird:          "/var/run/bird.ctl",
+			bgpConfig:     "/etc/bird/bird_bgp.conf",
+			staticConfig:  "/etc/bird/bird_static.conf",
+			bgpMarshal:    "neighbours.pb.txt",
+			staticMarshal: "static.pb.txt",
+		}
 	default:
 		return configFiles{}
 	}
