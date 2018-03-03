@@ -384,12 +384,19 @@ func reloadConfig(c *configFiles) (*pb.Result, error) {
 }
 
 func loadExistingPeers(c *configFiles) (*pb.PeerGroup, error) {
+	peers := &pb.PeerGroup{}
+
+	// Return empty if file doesn't yet exist
+	if _, err := os.Stat(c.bgpMarshal); os.IsNotExist(err) {
+		return peers, nil
+	}
+
+	// Else read existing peers
 	in, err := ioutil.ReadFile(c.bgpMarshal)
 	if err != nil {
 		return nil, err
 	}
 
-	peers := &pb.PeerGroup{}
 	err = proto.UnmarshalText(string(in), peers)
 	if err != nil {
 		return nil, err
