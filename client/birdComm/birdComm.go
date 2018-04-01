@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/mellowdrifter/bird_info/proto/birdComm"
-
-	"golang.org/x/net/context"
-
 	pb "github.com/mellowdrifter/bird_info/proto/birdComm"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
@@ -36,7 +33,7 @@ func main() {
 	serverConn := fmt.Sprintf("%v:1179", *server)
 	conn, err := grpc.Dial(serverConn, grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("Failed to start gRPC connect: %v", err)
+		log.Fatalf("Unable to connect to server: %v", err)
 	}
 	defer conn.Close()
 	client := pb.NewBirdCommClient(conn)
@@ -56,7 +53,6 @@ func main() {
 	}
 
 	// check action
-	// TO-DO - Would be good to print out these options
 	switch *action {
 	case "AddPeer":
 		res, err := peerAction(&peer, client, true)
@@ -83,16 +79,16 @@ func main() {
 		}
 		fmt.Printf("%v\n", res)
 	default:
-		log.Fatalf("Must select a supported action")
+		log.Fatalf("Must select a supported action (AddPeer, DeletePeer, AddRoute, DeleteRoute)")
 	}
 }
 
-func peerAction(p *pb.Peer, client birdComm.BirdCommClient, add bool) (*pb.Result, error) {
+func peerAction(p *pb.Peer, client pb.BirdCommClient, add bool) (*pb.Result, error) {
 	// Add peer if it's new
 	if add {
 		resp, err := client.AddNeighbour(context.Background(), p)
 		if err != nil {
-			log.Fatalf("Received an error from gRPC server: %v", err)
+			log.Fatalf("%v", err)
 		}
 		return resp, err
 	}
@@ -100,17 +96,17 @@ func peerAction(p *pb.Peer, client birdComm.BirdCommClient, add bool) (*pb.Resul
 	// delete peer otherwise
 	resp, err := client.DeleteNeighbour(context.Background(), p)
 	if err != nil {
-		log.Fatalf("Received an error from gRPC server: %v", err)
+		log.Fatalf("%v", err)
 	}
 	return resp, err
 }
 
-func routeAction(r *pb.Route, client birdComm.BirdCommClient, add bool) (*pb.Result, error) {
+func routeAction(r *pb.Route, client pb.BirdCommClient, add bool) (*pb.Result, error) {
 	// Add route if it's new
 	if add {
 		resp, err := client.AddStatic(context.Background(), r)
 		if err != nil {
-			log.Fatalf("Received an error from gRPC server: %v", err)
+			log.Fatalf("%v", err)
 		}
 		return resp, err
 	}
@@ -118,7 +114,7 @@ func routeAction(r *pb.Route, client birdComm.BirdCommClient, add bool) (*pb.Res
 	// delete route otherwise
 	resp, err := client.DeleteStatic(context.Background(), r)
 	if err != nil {
-		log.Fatalf("Received an error from gRPC server: %v", err)
+		log.Fatalf("%v", err)
 	}
 	return resp, err
 }

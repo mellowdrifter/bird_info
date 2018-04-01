@@ -10,12 +10,11 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/mellowdrifter/bird_info/proto/birdComm"
-
 	"github.com/golang/protobuf/proto"
 	pb "github.com/mellowdrifter/bird_info/proto/birdComm"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
+	valid "gopkg.in/asaskevich/govalidator.v4"
 )
 
 type server struct{}
@@ -111,9 +110,9 @@ func getConfig(family string) configFiles {
 func reMarshal(c *configFiles, m proto.Message) error {
 	var typeMarshal string
 	switch m.(type) {
-	case *birdComm.RouteGroup:
+	case *pb.RouteGroup:
 		typeMarshal = c.staticMarshal
-	case *birdComm.PeerGroup:
+	case *pb.PeerGroup:
 		typeMarshal = c.bgpMarshal
 	}
 	out, _ := os.Create(typeMarshal)
@@ -128,8 +127,19 @@ func reMarshal(c *configFiles, m proto.Message) error {
 func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
 	log.Printf("Adding peer %v", p.GetAddress())
 	// TO-DO - Validate update:
+	if p.GetAddress() == "" || p.GetAs() == 0 || p.GetName() == "" {
+		log.Printf("Invalid peer. Only received %+v", p)
+		return nil, fmt.Errorf("To add a peer, the address, AS, and name is required as a minimum. Only received %+v", p)
+	}
 	// Ensure correct values in place
 	// Determine IPv4 vs IPv6
+	if valid.IsIPv4(p.GetAddress()) {
+		log.Printf("IPv4 address passed in")
+	} else if valid.IsIPv6(p.GetAddress()) {
+		log.Printf("Ipv6 address passed in")
+	} else {
+		return nil, fmt.Errorf("Not a valid v4 or v6 address passed in")
+	}
 	// Determine IP is valid
 
 	// Load config for address family
