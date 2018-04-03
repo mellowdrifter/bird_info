@@ -74,9 +74,8 @@ func connectBird(c *configFiles, command []byte) ([]string, error) {
 
 }
 
-func getConfig(family string) configFiles {
-	switch family {
-	case "ipv4":
+func getConfig(address string) (configFiles, error) {
+	if valid.IsIPv4(address) {
 		return configFiles{
 			bird:          "/var/run/bird/bird.ctl",
 			family:        4,
@@ -84,8 +83,8 @@ func getConfig(family string) configFiles {
 			staticConfig:  "/etc/bird/bird4_static.conf",
 			bgpMarshal:    "neighbours4.pb.txt",
 			staticMarshal: "static4.pb.txt",
-		}
-	case "ipv6":
+		}, nil
+	} else if valid.IsIPv6(address) {
 		return configFiles{
 			bird:          "/var/run/bird/bird6.ctl",
 			family:        6,
@@ -93,17 +92,9 @@ func getConfig(family string) configFiles {
 			staticConfig:  "/etc/bird/bird6_static.conf",
 			bgpMarshal:    "neighbours6.pb.txt",
 			staticMarshal: "static6.pb.txt",
-		}
-	case "2":
-		return configFiles{
-			bird:          "/var/run/bird.ctl",
-			bgpConfig:     "/etc/bird/bird_bgp.conf",
-			staticConfig:  "/etc/bird/bird_static.conf",
-			bgpMarshal:    "neighbours.pb.txt",
-			staticMarshal: "static.pb.txt",
-		}
-	default:
-		return configFiles{}
+		}, nil
+	} else {
+		return configFiles{}, fmt.Errorf("No valid address passed")
 	}
 }
 
@@ -126,25 +117,18 @@ func reMarshal(c *configFiles, m proto.Message) error {
 
 func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
 	log.Printf("Adding peer %v", p.GetAddress())
-	// TO-DO - Validate update:
+
+	// Validate update:
 	if p.GetAddress() == "" || p.GetAs() == 0 || p.GetName() == "" {
 		log.Printf("Invalid peer. Only received %+v", p)
 		return nil, fmt.Errorf("To add a peer, the address, AS, and name is required as a minimum. Only received %+v", p)
 	}
-	// Ensure correct values in place
-	// Determine IPv4 vs IPv6
-	if valid.IsIPv4(p.GetAddress()) {
-		log.Printf("IPv4 address passed in")
-	} else if valid.IsIPv6(p.GetAddress()) {
-		log.Printf("Ipv6 address passed in")
-	} else {
-		return nil, fmt.Errorf("Not a valid v4 or v6 address passed in")
-	}
-	// Determine IP is valid
 
-	// Load config for address family
-	// Fix when above validation is done
-	conf := getConfig("ipv4")
+	// Get config based on address family
+	conf, err := getConfig(p.GetAddress())
+	if err != nil {
+		return nil, err
+	}
 
 	// Get existing peers
 	peers, err := loadExistingPeers(&conf)
@@ -197,17 +181,21 @@ func (s *server) AddNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, erro
 	err = reMarshal(&conf, &newPeers)
 	return resp, err
 }
+
 func (s *server) DeleteNeighbour(ctx context.Context, p *pb.Peer) (*pb.Result, error) {
 	log.Printf("Removing peer %v", p.GetAddress())
 
-	// TO-DO - Validate update:
-	// Ensure correct values in place
-	// Determine IPv4 vs IPv6
-	// Determine IP is valid
+	// Validate update:
+	if p.GetAddress() == "" {
+		log.Printf("No address passed to delete")
+		return nil, fmt.Errorf("No address passed to delete")
+	}
 
-	// Load config for address family
-	// Fix when above validation is done
-	conf := getConfig("ipv4")
+	// Get config based on address family
+	conf, err := getConfig(p.GetAddress())
+	if err != nil {
+		return nil, err
+	}
 
 	// Get existing peers
 	peers, err := loadExistingPeers(&conf)
@@ -280,8 +268,17 @@ func removeS(rg *pb.RouteGroup, r *pb.Route) pb.RouteGroup {
 	return newRoutes
 }
 func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error) {
-	// Load config for address family
-	conf := getConfig("IPv4")
+	// Validate update:
+	if r.GetPrefix() == "" || r.GetMask() == 0 || r.GetNexthop() == "" {
+		log.Printf("Invalid route. Only received %+v", r)
+		return nil, fmt.Errorf("To add a route, the prefix, mask, and next-hop is required. Only received %+v", r)
+	}
+
+	// Get config based on address family
+	conf, err := getConfig(r.GetPrefix())
+	if err != nil {
+		return nil, err
+	}
 
 	// Get existing routes
 	routes, err := loadExistingRoutes(&conf)
@@ -327,8 +324,11 @@ func (s *server) AddStatic(ctx context.Context, r *pb.Route) (*pb.Result, error)
 	return resp, err
 }
 func (s *server) DeleteStatic(ctx context.Context, r *pb.Route) (*pb.Result, error) {
-	// Load config for address family
-	conf := getConfig("IPv4")
+	// Get config based on address family
+	conf, err := getConfig(r.GetPrefix())
+	if err != nil {
+		return nil, err
+	}
 
 	// Get existing routes
 	routes, err := loadExistingRoutes(&conf)
